@@ -25,11 +25,6 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-
-	// Set up file drop handler
-	runtime.OnFileDrop(a.ctx, func(x, y int, paths []string) {
-		runtime.EventsEmit(a.ctx, "files-dropped", paths)
-	})
 }
 
 // ==================== Configuration Methods ====================

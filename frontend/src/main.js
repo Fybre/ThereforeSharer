@@ -35,8 +35,11 @@ async function init() {
         openSettings();
     }
 
-    // Listen for files dropped on the app window
-    runtime.EventsOn('files-dropped', handleDroppedFiles);
+    // Listen for files dropped on the app window (must use frontend
+    // runtime.OnFileDrop for Windows/WebView2 compatibility)
+    runtime.OnFileDrop((x, y, paths) => {
+        handleDroppedFiles(paths);
+    }, true);
 
     // Listen for upload progress events
     runtime.EventsOn('upload-progress', handleUploadProgress);
