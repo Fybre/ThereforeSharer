@@ -17,15 +17,18 @@ jobs:
           - os: macos-latest
             platform: darwin
             arch: amd64
-            output: ThereforeSharer-macos-intel
+            output: ThereforeSharer
+            asset: ThereforeSharer-macos-intel.dmg
           - os: macos-latest
             platform: darwin
             arch: arm64
-            output: ThereforeSharer-macos-arm64
+            output: ThereforeSharer
+            asset: ThereforeSharer-macos-arm64.dmg
           - os: windows-latest
             platform: windows
             arch: amd64
             output: ThereforeSharer.exe
+            asset: ThereforeSharer.exe
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
@@ -65,7 +68,40 @@ jobs:
         if: matrix.platform == 'windows'
         run: wails build -platform windows/amd64 -o ${{ matrix.output }}
 
-      - name: Upload to Release
+      - name: Create DMG (macOS)
+        if: matrix.platform == 'darwin'
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "ThereforeSharer" \
+            --volicon "build/appicon.icns" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "${{ matrix.output }}.app" 150 190 \
+            --app-drop-link 450 190 \
+            --hide-extension "${{ matrix.output }}.app" \
+            "${{ matrix.asset }}" \
+            "build/bin/${{ matrix.output }}.app" \
+          || create-dmg \
+            --volname "ThereforeSharer" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "${{ matrix.output }}.app" 150 190 \
+            --app-drop-link 450 190 \
+            --hide-extension "${{ matrix.output }}.app" \
+            "${{ matrix.asset }}" \
+            "build/bin/${{ matrix.output }}.app"
+
+      - name: Upload to Release (macOS)
+        if: matrix.platform == 'darwin'
         uses: softprops/action-gh-release@v1
         with:
-          files: build/bin/${{ matrix.output }}
+          files: ${{ matrix.asset }}
+
+      - name: Upload to Release (Windows)
+        if: matrix.platform == 'windows'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/bin/${{ matrix.asset }}
