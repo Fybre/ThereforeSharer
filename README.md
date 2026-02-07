@@ -18,12 +18,6 @@ ThereforeSharer is a lightweight macOS application that streamlines the process 
 - **Progress Tracking** - Real-time upload progress with cancellation support
 - **Native Integration** - Built as a native macOS application using Wails
 
-## Screenshots
-
-![Main Interface](docs/screenshot-main.png)
-![Settings](docs/screenshot-settings.png)
-![Share History](docs/screenshot-history.png)
-
 ## Requirements
 
 - macOS 10.13 (High Sierra) or later
@@ -34,7 +28,7 @@ ThereforeSharer is a lightweight macOS application that streamlines the process 
 
 ### From Release
 
-1. Download the latest release from the [Releases](https://github.com/yourusername/ThereforeSharer/releases) page
+1. Download the latest release from the [Releases](https://github.com/Fybre/ThereforeSharer/releases) page
 2. Extract the `.zip` file
 3. Move `ThereforeSharer.app` to your Applications folder
 4. Launch the application
@@ -51,7 +45,7 @@ ThereforeSharer is a lightweight macOS application that streamlines the process 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ThereforeSharer.git
+git clone https://github.com/Fybre/ThereforeSharer.git
 cd ThereforeSharer/ThereforeSharer
 
 # Install dependencies
