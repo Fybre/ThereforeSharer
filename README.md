@@ -229,7 +229,7 @@ Thanks to these wonderful contributors:
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Fybre"><img src="https://avatars.githubusercontent.com/u/fybre" width="100px;" alt="Fybre"/><br /><sub><b>Fybre</b></sub></a><br /><a href="https://github.com/Fybre/ThereforeSharer/commits?author=fybre" title="Code">💻</a> <a href="#ideas-fybre" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Fybre/ThereforeSharer/commits?author=fybre" title="Documentation">📖</a> <a href="#design-fybre" title="Design">🎨</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Fybre"><img src="https://avatars.githubusercontent.com/u/48275667?v=4" width="100px;" alt="Fybre"/><br /><sub><b>Fybre</b></sub></a><br /><a href="https://github.com/Fybre/ThereforeSharer/commits?author=fybre" title="Code">💻</a> <a href="#ideas-fybre" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Fybre/ThereforeSharer/commits?author=fybre" title="Documentation">📖</a> <a href="#design-fybre" title="Design">🎨</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://claude.ai"><img src="https://www.anthropic.com/favicon.ico" width="100px;" alt="Claude"/><br /><sub><b>Claude</b></sub></a><br /><a href="https://github.com/Fybre/ThereforeSharer/commits" title="Code">💻</a> <a href="#ideas-claude" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Fybre/ThereforeSharer/commits" title="Documentation">📖</a></td>
     </tr>
   </tbody>
