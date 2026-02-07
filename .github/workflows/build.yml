@@ -28,7 +28,7 @@ jobs:
             platform: windows
             arch: amd64
             output: ThereforeSharer.exe
-            asset: ThereforeSharer.exe
+            asset: ThereforeSharer-windows.zip
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
@@ -68,13 +68,63 @@ jobs:
         if: matrix.platform == 'windows'
         run: wails build -platform windows/amd64 -o ${{ matrix.output }}
 
+      # macOS Code Signing
+      - name: Import Apple Certificate
+        if: matrix.platform == 'darwin'
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          CERT_PATH=$RUNNER_TEMP/certificate.p12
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > $CERT_PATH
+          security import $CERT_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Sign macOS App
+        if: matrix.platform == 'darwin'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          codesign --force --deep --options runtime \
+            --sign "Developer ID Application: $(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')" \
+            "build/bin/${{ matrix.output }}.app"
+
+      - name: Notarize macOS App
+        if: matrix.platform == 'darwin'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Create a zip for notarization
+          ditto -c -k --keepParent "build/bin/${{ matrix.output }}.app" "$RUNNER_TEMP/notarize.zip"
+
+          # Submit for notarization
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          # Staple the notarization ticket
+          xcrun stapler staple "build/bin/${{ matrix.output }}.app"
+
       - name: Create DMG (macOS)
         if: matrix.platform == 'darwin'
         run: |
           brew install create-dmg
           create-dmg \
             --volname "ThereforeSharer" \
-            --volicon "build/appicon.icns" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
@@ -94,6 +144,19 @@ jobs:
             "${{ matrix.asset }}" \
             "build/bin/${{ matrix.output }}.app"
 
+      # Windows packaging
+      - name: Package Windows Build
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "build/bin/${{ matrix.output }}" -DestinationPath "${{ matrix.asset }}"
+
+      # Cleanup macOS keychain
+      - name: Cleanup Keychain
+        if: matrix.platform == 'darwin' && always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
+
       - name: Upload to Release (macOS)
         if: matrix.platform == 'darwin'
         uses: softprops/action-gh-release@v1
@@ -104,4 +167,4 @@ jobs:
         if: matrix.platform == 'windows'
         uses: softprops/action-gh-release@v1
         with:
-          files: build/bin/${{ matrix.asset }}
+          files: ${{ matrix.asset }}
