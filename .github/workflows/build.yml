@@ -95,8 +95,10 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "Signing with identity: $IDENTITY"
           codesign --force --deep --options runtime \
-            --sign "Developer ID Application: $(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')" \
+            --sign "$IDENTITY" \
             "build/bin/${{ matrix.output }}.app"
 
       - name: Notarize macOS App
