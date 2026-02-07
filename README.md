@@ -1,5 +1,7 @@
 # ThereforeSharer
 
+[![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors)
+
 A native desktop application for quickly sharing files via Therefore™ document management system.
 
 ## Overview
@@ -213,14 +215,28 @@ Contributions are welcome! Please:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Authors
+## Contributors
 
-**Fybre**
-- Email: craig@fybre.me
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-**Claude (Anthropic)**
-- AI pair programming assistant
-- Contributed to architecture, implementation, and code quality
+Thanks to these wonderful contributors:
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Fybre"><img src="https://avatars.githubusercontent.com/u/fybre" width="100px;" alt="Fybre"/><br /><sub><b>Fybre</b></sub></a><br /><a href="https://github.com/Fybre/ThereforeSharer/commits?author=fybre" title="Code">💻</a> <a href="#ideas-fybre" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Fybre/ThereforeSharer/commits?author=fybre" title="Documentation">📖</a> <a href="#design-fybre" title="Design">🎨</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://claude.ai"><img src="https://www.anthropic.com/favicon.ico" width="100px;" alt="Claude"/><br /><sub><b>Claude</b></sub></a><br /><a href="https://github.com/Fybre/ThereforeSharer/commits" title="Code">💻</a> <a href="#ideas-claude" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Fybre/ThereforeSharer/commits" title="Documentation">📖</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+<!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ## Acknowledgments
 

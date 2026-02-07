@@ -1,0 +1,28 @@
+{
+  "projectName": "ThereforeSharer",
+  "projectOwner": "Fybre",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": ["README.md"],
+  "imageSize": 100,
+  "commit": false,
+  "commitConvention": "angular",
+  "contributors": [
+    {
+      "login": "fybre",
+      "name": "Fybre",
+      "avatar_url": "https://avatars.githubusercontent.com/u/fybre",
+      "profile": "https://github.com/Fybre",
+      "contributions": ["code", "ideas", "doc", "design"]
+    },
+    {
+      "name": "Claude",
+      "avatar_url": "https://www.anthropic.com/favicon.ico",
+      "profile": "https://claude.ai",
+      "contributions": ["code", "ideas", "doc"]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "skipCi": true,
+  "repoLink": "https://github.com/Fybre/ThereforeSharer"
+}
