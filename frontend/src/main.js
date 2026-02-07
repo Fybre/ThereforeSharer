@@ -656,20 +656,20 @@ function setupEventListeners() {
         renderHistory();
     });
     
-    // Drag and drop
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
+    // Drag and drop visual feedback only - Wails handles the native
+    // file drop via OnFileDrop and emits 'files-dropped' event.
+    // We must NOT call e.preventDefault() as it prevents the native
+    // Wails drop handler from receiving the event on Windows/WebView2.
+    dropZone.addEventListener('dragover', () => {
         dropZone.classList.add('drag-over');
     });
-    
+
     dropZone.addEventListener('dragleave', () => {
         dropZone.classList.remove('drag-over');
     });
-    
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
+
+    dropZone.addEventListener('drop', () => {
         dropZone.classList.remove('drag-over');
-        // Wails will emit files-dropped event, not use dataTransfer
     });
     
     // Browse button
