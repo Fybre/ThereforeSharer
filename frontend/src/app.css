@@ -2,15 +2,18 @@
 .main-container {
   max-width: 640px;
   margin: 0 auto;
-  padding: 32px;
-  min-height: 100vh;
+  padding: 24px 32px;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .content-area {
   flex: 1;
   transition: opacity 0.2s ease;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .content-area.disabled {
@@ -603,6 +606,9 @@ textarea.input {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .form-group {
@@ -742,6 +748,7 @@ textarea.input {
   flex: 1;
   overflow-y: auto;
   margin-top: 16px;
+  min-height: 0;
 }
 
 .loading, .empty-history, .error-history {

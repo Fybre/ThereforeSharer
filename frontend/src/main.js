@@ -19,9 +19,21 @@ const appState = {
 };
 
 // ==================== Initialization ====================
-function init() {
+async function init() {
     appElement = document.getElementById('app');
-    renderMain();
+
+    // Check if app is configured - show settings on first run
+    try {
+        const config = await App.GetConfig();
+        if (!config || !config.is_set_up) {
+            openSettings();
+        } else {
+            renderMain();
+        }
+    } catch (err) {
+        // Config doesn't exist yet - show settings
+        openSettings();
+    }
 
     // Listen for files dropped on the app window
     runtime.EventsOn('files-dropped', handleDroppedFiles);

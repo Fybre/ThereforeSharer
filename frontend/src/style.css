@@ -17,6 +17,6 @@
   --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
 * { box-sizing: border-box; }
-html { background: var(--bg-primary); color: var(--text-primary); font-size: 14px; }
-body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-primary); }
-#app { height: 100vh; background: var(--bg-primary); }
+html { background: var(--bg-primary); color: var(--text-primary); font-size: 14px; overflow: hidden; height: 100%; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-primary); overflow: hidden; height: 100%; }
+#app { height: 100vh; background: var(--bg-primary); overflow: hidden; }
