@@ -19,7 +19,7 @@ func main() {
 	err := wails.Run(&options.App{
 		Title:         "ThereforeSharer",
 		Width:         480,
-		Height:        630,
+		Height:        660,
 		DisableResize: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
