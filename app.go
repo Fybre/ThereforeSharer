@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -153,10 +154,19 @@ func (a *App) ShareFiles(req ShareRequest) (*ShareResponse, error) {
 		return nil, err
 	}
 
-	// Create ZIP archive
-	fileData, err := CreateZipArchive(req.Files)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create archive: %w", err)
+	// Read or create ZIP archive
+	var fileData []byte
+	if len(req.Files) == 1 && strings.EqualFold(filepath.Ext(req.Files[0]), ".zip") {
+		// Single zip file - read it directly without re-zipping
+		fileData, err = os.ReadFile(req.Files[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to read file: %w", err)
+		}
+	} else {
+		fileData, err = CreateZipArchive(req.Files)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create archive: %w", err)
+		}
 	}
 
 	// Check if cancelled

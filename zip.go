@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -78,9 +79,13 @@ func addFileToZip(zipWriter *zip.Writer, filePath string) error {
 // For multiple files, uses defaultArchiveName with timestamp and .zip extension
 func GetFileNameForUpload(filePaths []string, defaultArchiveName string) string {
 	if len(filePaths) == 1 {
-		// Use original filename base with .zip extension
 		baseName := filepath.Base(filePaths[0])
 		ext := filepath.Ext(baseName)
+		// If already a .zip, keep the original filename
+		if strings.EqualFold(ext, ".zip") {
+			return baseName
+		}
+		// Otherwise use original filename base with .zip extension
 		nameWithoutExt := baseName[:len(baseName)-len(ext)]
 		return nameWithoutExt + ".zip"
 	}
