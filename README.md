@@ -6,7 +6,13 @@ A native desktop application for quickly sharing files via Therefore™ document
 
 ## Overview
 
-ThereforeSharer is a lightweight macOS application that streamlines the process of sharing files through Therefore. Simply drag and drop files, set optional security parameters, and instantly generate shareable links.
+ThereforeSharer is a lightweight desktop application that streamlines the process of sharing files through Therefore. Simply drag and drop files, set optional security parameters, and instantly generate shareable links.
+
+## Screenshots
+
+| Main | History | Settings |
+|:---:|:---:|:---:|
+| ![Main](docs/ThereforeSharer-main.png) | ![History](docs/ThereforeSharer-history.png) | ![Settings](docs/ThereforeSharer-settings.png) |
 
 ## Features
 
@@ -16,11 +22,11 @@ ThereforeSharer is a lightweight macOS application that streamlines the process 
 - **Expiry Settings** - Set automatic link expiration (7, 30, 90 days, or custom date)
 - **Share History** - View, manage, and revoke previously shared links
 - **Progress Tracking** - Real-time upload progress with cancellation support
-- **Native Integration** - Built as a native macOS application using Wails
+- **Native Integration** - Built as a native desktop application using Wails (macOS & Windows)
 
 ## Requirements
 
-- macOS 10.13 (High Sierra) or later
+- macOS 10.13 (High Sierra) or later, or Windows 10+
 - Active Therefore™ account with API access
 - Therefore REST API endpoint
 
@@ -29,8 +35,8 @@ ThereforeSharer is a lightweight macOS application that streamlines the process 
 ### From Release
 
 1. Download the latest release from the [Releases](https://github.com/Fybre/ThereforeSharer/releases) page
-2. Extract the `.zip` file
-3. Move `ThereforeSharer.app` to your Applications folder
+2. **macOS**: Open the `.dmg` and drag the app to your Applications folder
+3. **Windows**: Extract the `.zip` file and run `ThereforeSharer.exe`
 4. Launch the application
 
 ### Building from Source
@@ -79,6 +85,7 @@ On first launch, you'll be guided through the setup process:
 
 Configuration is stored in:
 - macOS: `~/Library/Application Support/ThereforeSharer/config.json`
+- Windows: `%APPDATA%\ThereforeSharer\config.json`
 
 Credentials are securely stored in the system keychain.
 
