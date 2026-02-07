@@ -62,11 +62,18 @@ jobs:
         if: matrix.platform == 'windows'
         run: wails build -platform windows/amd64 -o ${{ matrix.output }}
 
-      - name: Upload to Release
+      - name: Upload to Release (macOS)
+        if: matrix.platform == 'darwin'
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            build/bin/${{ matrix.output }}
-            build/bin/${{ matrix.output }}.exe
+          files: build/bin/${{ matrix.output }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Release (Windows)
+        if: matrix.platform == 'windows'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/bin/${{ matrix.output }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
