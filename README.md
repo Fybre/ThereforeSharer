@@ -10,9 +10,13 @@ ThereforeSharer is a lightweight desktop application that streamlines the proces
 
 ## Screenshots
 
-| Main | History | Settings |
-|:---:|:---:|:---:|
-| ![Main](docs/ThereforeSharer-main.png) | ![History](docs/ThereforeSharer-history.png) | ![Settings](docs/ThereforeSharer-settings.png) |
+| Main | Main (Upload) |
+|:---:|:---:|
+| ![Main](docs/ThereforeSharer-Main.png) | ![Main Upload](docs/ThereforeSharer-Main2.png) |
+
+| History | Settings |
+|:---:|:---:|
+| ![History](docs/ThereforeSharer-History.png) | ![Settings](docs/ThereforeSharer-Settings.png) |
 
 ## Features
 
