@@ -179,6 +179,21 @@ For more information about the Therefore API, refer to your Therefore documentat
 - Make sure files (not folders) are being dropped
 - Check the file drawer (badge icon) to see selected files
 
+### Reset to default settings
+To completely reset the application:
+
+**macOS:**
+```bash
+rm ~/Library/Application\ Support/ThereforeSharer/config.json
+```
+
+**Windows:**
+```cmd
+del %APPDATA%\ThereforeSharer\config.json
+```
+
+The app will show the initial setup screen on next launch. Credentials stored in the system keychain will be overwritten when you reconfigure.
+
 ## Development
 
 ### Code Structure
