@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/zalando/go-keyring"
 )
@@ -129,4 +130,13 @@ func DeleteAuthToken() error {
 func CreateBasicAuthToken(username, password string) string {
 	credentials := username + ":" + password
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(credentials))
+}
+
+// CreateBearerAuthToken creates a Bearer auth token, adding the "Bearer " prefix if not present
+func CreateBearerAuthToken(token string) string {
+	// Check if token already has "Bearer " prefix (case-insensitive)
+	if len(token) > 7 && strings.ToLower(token[:7]) == "bearer " {
+		return token
+	}
+	return "Bearer " + token
 }

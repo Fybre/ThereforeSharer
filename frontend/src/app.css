@@ -23,31 +23,182 @@
   pointer-events: none;
 }
 
+/* Upload Progress Overlay */
+.upload-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.upload-progress-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 32px;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+
+.upload-progress-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.upload-progress-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 24px 0;
+}
+
+.upload-progress-subtitle::after {
+  content: '...';
+  display: inline-block;
+  width: 20px;
+  text-align: left;
+  animation: ellipsis 1.5s infinite;
+}
+
+@keyframes ellipsis {
+  0% { content: '.'; }
+  33% { content: '..'; }
+  66% { content: '...'; }
+}
+
+.upload-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), #2563eb);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+.upload-progress-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+}
+
+.upload-cancel-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.upload-cancel-btn:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+
 .app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 14px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
+.app-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-title-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Gradient background only for Font Awesome icons, not for images */
+.app-title-icon:has(i) {
+  background: linear-gradient(135deg, var(--accent-primary), #2563eb);
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.app-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.app-title-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .app-header h1 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.app-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin: 0;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 .icon-btn {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
-  padding: 10px 14px;
+  padding: 9px 13px;
   border-radius: 8px;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
@@ -57,8 +208,14 @@
 
 .icon-btn:hover {
   background: var(--bg-secondary);
-  border-color: var(--text-muted);
-  color: var(--text-primary);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.icon-btn:active {
+  transform: translateY(0);
 }
 
 .icon-btn:disabled {
@@ -1170,6 +1327,44 @@ textarea.input {
   display: flex;
   justify-content: center;
   gap: 12px;
+}
+
+/* Error Modal */
+.error-modal {
+  max-width: 480px;
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.error-header i {
+  font-size: 32px;
+  color: var(--danger);
+}
+
+.error-header h3 {
+  margin: 0;
+  color: var(--danger);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.error-message {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
+  background: var(--bg-tertiary);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border-left: 3px solid var(--danger);
+  word-wrap: break-word;
 }
 
 /* Status Bar */

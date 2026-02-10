@@ -2,6 +2,7 @@ import './style.css';
 import './app.css';
 import * as App from '../wailsjs/go/main/App.js';
 import * as runtime from '../wailsjs/runtime/runtime.js';
+import appIconUrl from './appicon.png';
 
 let appElement;
 
@@ -50,7 +51,15 @@ function renderMain() {
     appElement.innerHTML = `
         <div class="main-container">
             <header class="app-header">
-                <h1>ThereforeSharer</h1>
+                <div class="app-title">
+                    <div class="app-title-icon">
+                        <img src="${appIconUrl}" alt="ThereforeSharer" class="app-icon-img">
+                    </div>
+                    <div class="app-title-text">
+                        <h1>ThereforeSharer</h1>
+                        <p class="app-subtitle">Quick File Sharing</p>
+                    </div>
+                </div>
                 <div class="header-buttons">
                     <button class="icon-btn history-btn" id="historyBtn" title="Share History"><i class="fas fa-history"></i></button>
                     <button class="icon-btn settings-btn" id="settingsBtn" title="Settings"><i class="fas fa-gear"></i></button>
@@ -179,7 +188,15 @@ async function openSettings() {
     appElement.innerHTML = `
         <div class="main-container">
             <header class="app-header">
-                <h1>Settings</h1>
+                <div class="app-title">
+                    <div class="app-title-icon">
+                        <img src="${appIconUrl}" alt="ThereforeSharer" class="app-icon-img">
+                    </div>
+                    <div class="app-title-text">
+                        <h1>Settings</h1>
+                        <p class="app-subtitle">Configure Your Connection</p>
+                    </div>
+                </div>
                 <button class="icon-btn back-btn" id="backBtn" title="Back"><i class="fas fa-arrow-left"></i></button>
             </header>
             
@@ -333,7 +350,7 @@ async function openSettings() {
 
             showToast('Settings saved successfully!');
         } catch (err) {
-            showToast('Failed to save settings: ' + (err?.message || 'Unknown error'), 'error');
+            showErrorDialog('Failed to Save Settings', err?.message || 'Unknown error');
         }
     });
 }
@@ -383,7 +400,7 @@ async function loadCategories() {
         showToast('Categories loaded successfully!');
     } catch (err) {
         console.error('Failed to load categories:', err);
-        showToast('Failed to load categories: ' + (err?.message || 'Unknown error'), 'error');
+        showErrorDialog('Failed to Load Categories', err?.message || 'Unknown error');
     }
 }
 
@@ -443,7 +460,15 @@ async function renderHistory() {
     appElement.innerHTML = `
         <div class="main-container">
             <header class="app-header">
-                <h1>Share History</h1>
+                <div class="app-title">
+                    <div class="app-title-icon">
+                        <img src="${appIconUrl}" alt="ThereforeSharer" class="app-icon-img">
+                    </div>
+                    <div class="app-title-text">
+                        <h1>Share History</h1>
+                        <p class="app-subtitle">Manage Your Shared Links</p>
+                    </div>
+                </div>
                 <div class="header-buttons">
                     <button class="icon-btn back-btn" id="backBtn" title="Back"><i class="fas fa-arrow-left"></i></button>
                     <button class="icon-btn settings-btn" id="settingsBtn" title="Settings"><i class="fas fa-gear"></i></button>
@@ -598,7 +623,7 @@ async function loadShareHistory() {
                             loadShareHistory();
                         }).catch(err => {
                             console.error('Failed to revoke link:', err);
-                            showToast('Failed to revoke link: ' + (err?.message || 'Unknown error'), 'error');
+                            showErrorDialog('Failed to Revoke Link', err?.message || 'Unknown error');
                         });
                     }
                 );
@@ -624,7 +649,7 @@ async function loadShareHistory() {
                             loadShareHistory();
                         }).catch(err => {
                             console.error('Failed to delete document:', err);
-                            showToast('Failed to delete document: ' + (err?.message || 'Unknown error'), 'error');
+                            showErrorDialog('Failed to Delete Document', err?.message || 'Unknown error');
                         });
                     }
                 );
@@ -633,12 +658,36 @@ async function loadShareHistory() {
         
     } catch (err) {
         console.error('Failed to load history:', err);
-        historyList.innerHTML = `
-            <div class="error-history">
-                <p>Failed to load history.</p>
-                <p>${err?.message || 'Unknown error'}</p>
-            </div>
-        `;
+
+        // Extract error message
+        const errorMsg = err?.message || err?.toString() || 'Unknown error';
+
+        // Check for specific error types and show appropriate messages
+        if (errorMsg.includes('application not configured')) {
+            historyList.innerHTML = `
+                <div class="empty-history">
+                    <i class="fas fa-cog" style="font-size: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+                    <p>Application not configured</p>
+                    <p>Please configure your settings first.</p>
+                </div>
+            `;
+        } else if (errorMsg.includes('no authentication') || errorMsg.includes('auth token')) {
+            historyList.innerHTML = `
+                <div class="empty-history">
+                    <i class="fas fa-key" style="font-size: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+                    <p>Authentication required</p>
+                    <p>Please check your credentials in settings.</p>
+                </div>
+            `;
+        } else {
+            historyList.innerHTML = `
+                <div class="error-history">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--danger); margin-bottom: 16px;"></i>
+                    <p>Failed to load history</p>
+                    <p style="font-size: 14px; color: var(--text-muted);">${errorMsg}</p>
+                </div>
+            `;
+        }
     }
 }
 
@@ -746,24 +795,8 @@ function setupEventListeners() {
             expiryDays = parseInt(expiryValue);
         }
 
-        // Disable UI during upload
-        shareBtn.disabled = true;
-        const contentArea = document.querySelector('.content-area');
-        const optionsPanel = document.getElementById('optionsPanel');
-        const headerButtons = document.querySelectorAll('.icon-btn');
-
-        if (contentArea) contentArea.classList.add('disabled');
-        if (optionsPanel) optionsPanel.style.pointerEvents = 'none';
-        headerButtons.forEach(btn => btn.disabled = true);
-
-        // Show progress in button with cancel option
-        shareBtn.innerHTML = `
-            <div class="btn-progress-bg" style="width: 0%;"></div>
-            <div class="btn-content">
-                <span><i class="fas fa-spinner fa-spin"></i> Preparing... 0%</span>
-                <button class="btn-cancel" onclick="cancelUpload(event)">Cancel</button>
-            </div>
-        `;
+        // Show upload overlay
+        const overlay = showUploadOverlay();
 
         try {
             // Build request object matching backend ShareRequest struct
@@ -776,22 +809,8 @@ function setupEventListeners() {
 
             const response = await App.ShareFiles(shareRequest);
 
-            // Upload complete
-            shareBtn.innerHTML = `
-                <div class="btn-progress-bg" style="width: 100%;"></div>
-                <div class="btn-content">
-                    <span><i class="fas fa-check"></i> Upload Complete!</span>
-                </div>
-            `;
-
-            // Reset button and UI after a short delay
-            setTimeout(() => {
-                shareBtn.innerHTML = '<div class="btn-content"><span><i class="fas fa-share-alt"></i> Share Files</span></div>';
-                shareBtn.disabled = false;
-                if (contentArea) contentArea.classList.remove('disabled');
-                if (optionsPanel) optionsPanel.style.pointerEvents = '';
-                headerButtons.forEach(btn => btn.disabled = false);
-            }, 1500);
+            // Remove overlay
+            overlay.remove();
 
             showShareDialog(response.url);
         } catch (err) {
@@ -807,18 +826,15 @@ function setupEventListeners() {
                 errorMsg = err.toString();
             }
 
-            // Don't show error toast for cancellation (already shown in cancelUpload)
+            // Remove overlay
+            overlay.remove();
+
+            // Don't show error dialog for cancellation (already shown in cancelUpload)
             const isCancelled = errorMsg.toLowerCase().includes('cancel');
 
             if (!isCancelled) {
-                showToast('Failed to share: ' + (errorMsg || 'Unknown error'), 'error');
+                showErrorDialog('Failed to Share Files', errorMsg || 'Unknown error');
             }
-
-            shareBtn.innerHTML = '<div class="btn-content"><span><i class="fas fa-share-alt"></i> Share Files</span></div>';
-            shareBtn.disabled = false;
-            if (contentArea) contentArea.classList.remove('disabled');
-            if (optionsPanel) optionsPanel.style.pointerEvents = '';
-            headerButtons.forEach(btn => btn.disabled = false);
         }
     });
 }
@@ -842,33 +858,56 @@ async function handleDroppedFiles(paths) {
     updateFileList();
 }
 
+function showUploadOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'upload-overlay';
+    overlay.id = 'uploadOverlay';
+    overlay.innerHTML = `
+        <div class="upload-progress-card">
+            <h3 class="upload-progress-title">Uploading Files</h3>
+            <p class="upload-progress-subtitle">Preparing files</p>
+            <div class="upload-progress-bar">
+                <div class="upload-progress-fill" id="uploadProgressFill" style="width: 0%;"></div>
+            </div>
+            <div class="upload-progress-text" id="uploadProgressText">0% • 0 B / 0 B</div>
+            <button class="upload-cancel-btn" id="uploadCancelBtn">
+                <i class="fas fa-times"></i> Cancel Upload
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Add cancel handler
+    overlay.querySelector('#uploadCancelBtn').addEventListener('click', async () => {
+        try {
+            await App.CancelUpload();
+            overlay.remove();
+            showToast('Upload cancelled', 'error');
+        } catch (err) {
+            console.error('Failed to cancel upload:', err);
+        }
+    });
+
+    return overlay;
+}
+
 function handleUploadProgress(data) {
-    const shareBtn = document.getElementById('shareBtn');
-    if (!shareBtn) return;
+    const progressFill = document.getElementById('uploadProgressFill');
+    const progressText = document.getElementById('uploadProgressText');
+    const subtitle = document.querySelector('.upload-progress-subtitle');
+
+    if (!progressFill || !progressText) return;
 
     const percent = data.percent || 0;
     const current = formatFileSize(data.current);
     const total = formatFileSize(data.total);
 
-    shareBtn.innerHTML = `
-        <div class="btn-progress-bg" style="width: ${percent}%;"></div>
-        <div class="btn-content">
-            <span><i class="fas fa-upload"></i> ${percent}% • ${current}/${total}</span>
-            <button class="btn-cancel" onclick="cancelUpload(event)">Cancel</button>
-        </div>
-    `;
-}
+    progressFill.style.width = `${percent}%`;
+    progressText.textContent = `${percent}% • ${current} / ${total}`;
 
-// Global function to cancel upload (called from inline onclick)
-window.cancelUpload = async function(event) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    try {
-        await App.CancelUpload();
-        showToast('Upload cancelled', 'error');
-    } catch (err) {
-        console.error('Failed to cancel upload:', err);
+    if (subtitle) {
+        subtitle.textContent = percent === 0 ? 'Preparing files' : 'Uploading to Therefore';
     }
 }
 
@@ -1003,6 +1042,40 @@ function showConfirmDialog(message, onConfirm) {
             overlay.remove();
         }
     });
+}
+
+// ==================== Error Dialog ====================
+function showErrorDialog(title, message) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal error-modal">
+            <div class="error-header">
+                <i class="fas fa-exclamation-circle"></i>
+                <h3>${title}</h3>
+            </div>
+            <div class="error-message">${message}</div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="closeBtn">Close</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const closeBtn = overlay.querySelector('#closeBtn');
+    closeBtn.addEventListener('click', () => {
+        overlay.remove();
+    });
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+        }
+    });
+
+    // Focus the close button for keyboard accessibility
+    setTimeout(() => closeBtn.focus(), 100);
 }
 
 // ==================== Utility Functions ====================

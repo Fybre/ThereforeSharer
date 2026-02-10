@@ -61,7 +61,21 @@ func (c *ThereforeAPIClient) makeRequest(method, endpoint string, body []byte) (
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(respBody))
+		// Parse common error scenarios to provide helpful messages
+		bodyStr := string(respBody)
+		switch resp.StatusCode {
+		case 401:
+			return nil, fmt.Errorf("authentication failed - please check your credentials in settings")
+		case 403:
+			return nil, fmt.Errorf("permission denied - you don't have rights to perform this action. Check your Therefore permissions for this category")
+		case 404:
+			return nil, fmt.Errorf("resource not found - the category or document may have been deleted")
+		case 500, 502, 503:
+			return nil, fmt.Errorf("Therefore server error - please try again later or contact your administrator")
+		default:
+			// For other errors, show the status code and response
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, bodyStr)
+		}
 	}
 
 	return respBody, nil
@@ -111,7 +125,21 @@ func (c *ThereforeAPIClient) makeRequestWithProgress(ctx context.Context, method
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(respBody))
+		// Parse common error scenarios to provide helpful messages
+		bodyStr := string(respBody)
+		switch resp.StatusCode {
+		case 401:
+			return nil, fmt.Errorf("authentication failed - please check your credentials in settings")
+		case 403:
+			return nil, fmt.Errorf("permission denied - you don't have rights to perform this action. Check your Therefore permissions for this category")
+		case 404:
+			return nil, fmt.Errorf("resource not found - the category or document may have been deleted")
+		case 500, 502, 503:
+			return nil, fmt.Errorf("Therefore server error - please try again later or contact your administrator")
+		default:
+			// For other errors, show the status code and response
+			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, bodyStr)
+		}
 	}
 
 	return respBody, nil
@@ -140,8 +168,8 @@ type CategoryWithPath struct {
 
 // GetCategoriesTree retrieves all categories tree
 func (c *ThereforeAPIClient) GetCategoriesTree() ([]TreeViewNode, error) {
-	// GetCategoriesTree requires a POST request with Permissions field
-	reqBody := `{"Permissions":0}`
+	// GetCategoriesTree - using empty payload to match Therefore web client behavior
+	reqBody := `{}`
 	data, err := c.makeRequest("POST", "GetCategoriesTree", []byte(reqBody))
 	if err != nil {
 		return nil, err

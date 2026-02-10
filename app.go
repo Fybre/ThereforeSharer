@@ -45,14 +45,16 @@ func (a *App) SetAuthCredentials(authType, username, password, token string) err
 	var authToken string
 	if authType == "basic" && username != "" && password != "" {
 		authToken = CreateBasicAuthToken(username, password)
+	} else if authType == "bearer" && token != "" {
+		authToken = CreateBearerAuthToken(token)
 	} else {
 		authToken = token
 	}
-	
+
 	if authToken == "" {
 		return fmt.Errorf("no authentication token provided")
 	}
-	
+
 	return SetAuthToken(authToken)
 }
 
@@ -80,10 +82,12 @@ func (a *App) GetCategories(req TestConnectionRequest) ([]CategoryInfo, error) {
 	var authToken string
 	if req.AuthType == "basic" && req.Username != "" && req.Password != "" {
 		authToken = CreateBasicAuthToken(req.Username, req.Password)
+	} else if req.AuthType == "bearer" && req.Token != "" {
+		authToken = CreateBearerAuthToken(req.Token)
 	} else {
 		authToken = req.Token
 	}
-	
+
 	// If no credentials in request, try stored credentials
 	if authToken == "" {
 		storedToken, err := GetAuthToken()
@@ -92,7 +96,7 @@ func (a *App) GetCategories(req TestConnectionRequest) ([]CategoryInfo, error) {
 		}
 		authToken = storedToken
 	}
-	
+
 	client := NewThereforeAPIClient(req.BaseURL, req.TenantName, authToken)
 	
 	treeViews, err := client.GetCategoriesTree()
@@ -262,9 +266,9 @@ func (a *App) GetShareHistory() ([]ShareHistoryEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	
-	// Convert to our format
-	var result []ShareHistoryEntry
+
+	// Convert to our format - initialize with empty slice to ensure JSON returns [] not null
+	result := make([]ShareHistoryEntry, 0)
 	for _, entry := range entries {
 		result = append(result, ShareHistoryEntry{
 			Filename:     entry.SharedLink.Filename,
@@ -277,7 +281,7 @@ func (a *App) GetShareHistory() ([]ShareHistoryEntry, error) {
 			CategoryName: entry.CategoryName,
 		})
 	}
-	
+
 	return result, nil
 }
 
