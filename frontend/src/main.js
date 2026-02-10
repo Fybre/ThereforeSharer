@@ -266,8 +266,12 @@ async function openSettings() {
                 </div>
 
                 <button class="btn btn-primary" id="saveSettingsBtn" style="width: 100%;">Save Settings</button>
+
+                <button class="btn btn-secondary" id="aboutBtn" style="width: 100%; margin-top: 12px;">
+                    <i class="fas fa-info-circle"></i> About ThereforeSharer
+                </button>
             </div>
-            
+
             <div class="toast-container" id="toastContainer"></div>
         </div>
     `;
@@ -352,6 +356,80 @@ async function openSettings() {
         } catch (err) {
             showErrorDialog('Failed to Save Settings', err?.message || 'Unknown error');
         }
+    });
+
+    // About button
+    document.getElementById('aboutBtn').addEventListener('click', () => {
+        renderAbout();
+    });
+}
+
+// ==================== About Screen ====================
+function renderAbout() {
+    appElement.innerHTML = `
+        <div class="main-container">
+            <header class="app-header">
+                <div class="app-title">
+                    <div class="app-title-icon">
+                        <img src="${appIconUrl}" alt="ThereforeSharer" class="app-icon-img">
+                    </div>
+                    <div class="app-title-text">
+                        <h1>About</h1>
+                        <p class="app-subtitle">Application Information</p>
+                    </div>
+                </div>
+                <button class="icon-btn back-btn" id="backBtn" title="Back"><i class="fas fa-arrow-left"></i></button>
+            </header>
+
+            <div class="about-content">
+                <div class="about-section">
+                    <h3>ThereforeSharer</h3>
+                    <p class="about-version">Version 1.1.4</p>
+                    <p class="about-description">A native desktop application for quickly sharing files via Therefore™ document management system.</p>
+                </div>
+
+                <div class="about-section">
+                    <h3>Built With</h3>
+                    <ul class="about-list">
+                        <li><strong>Wails v2</strong> - Go + Web GUI framework</li>
+                        <li><strong>Go 1.21+</strong> - Backend language</li>
+                        <li><strong>Vanilla JavaScript</strong> - Frontend</li>
+                        <li><strong>Vite</strong> - Build tool</li>
+                        <li><strong>Font Awesome</strong> - Icons</li>
+                        <li><strong>go-keyring</strong> - Secure credential storage</li>
+                    </ul>
+                </div>
+
+                <div class="about-section">
+                    <h3>Source Code</h3>
+                    <p class="about-description">This project is open source and available on GitHub:</p>
+                    <a href="#" class="about-link" id="githubLink">
+                        <i class="fab fa-github"></i> github.com/Fybre/ThereforeSharer
+                    </a>
+                </div>
+
+                <div class="about-section">
+                    <h3>License</h3>
+                    <p class="about-description">MIT License - Copyright © 2026 Fybre</p>
+                </div>
+
+                <div class="about-section">
+                    <p class="about-disclaimer">Therefore™ is a trademark of Therefore Corporation. This application is an independent tool and is not officially affiliated with or endorsed by Therefore Corporation.</p>
+                </div>
+            </div>
+
+            <div class="toast-container" id="toastContainer"></div>
+        </div>
+    `;
+
+    // Back button
+    document.getElementById('backBtn').addEventListener('click', openSettings);
+
+    // GitHub link
+    document.getElementById('githubLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        // Open in default browser (Wails runtime can handle this)
+        window.open('https://github.com/Fybre/ThereforeSharer', '_blank');
     });
 }
 
