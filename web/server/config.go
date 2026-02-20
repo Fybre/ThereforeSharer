@@ -29,7 +29,9 @@ type Config struct {
 
 // GetConfigPath returns the full path to the config file
 func GetConfigPath() string {
-	return filepath.Join(".", configFileName)
+	// Ensure data directory exists
+	os.MkdirAll("data", 0755)
+	return filepath.Join("data", configFileName)
 }
 
 // LoadConfig loads the configuration from disk

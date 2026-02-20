@@ -202,7 +202,7 @@ function renderMain() {
                 <div class="file-badge-container">
                     <div class="file-badge" id="fileBadge" style="visibility: hidden;">
                         <i class="fas fa-file"></i>
-                        <span id="fileBadgeText">0 files</span>
+                        <span id="fileBadgeText">0 files selected</span>
                         <span class="badge-count" id="badgeCount">0</span>
                     </div>
                 </div>
@@ -399,23 +399,94 @@ function setupEventListeners() {
         const customExpiry = expiryDays === -1 ? new Date(document.getElementById('customDate').value).toISOString() : '';
         try {
             const resp = await API.shareFiles(appState.files, password, expiryDays, customExpiry);
-            const dialog = document.createElement('div');
-            dialog.className = 'share-dialog';
-            dialog.innerHTML = `<div class="dialog-content"><h3>Shared!</h3><input type="text" value="${resp.url}" readonly style="width: 100%;"><br><br><button class="btn btn-primary" onclick="location.reload()">Close</button></div>`;
-            document.body.appendChild(dialog);
+            showShareDialog(resp.url);
         } catch (err) { alert(err.message); }
     });
 }
 
 function handleFiles(list) { for (const f of list) { if (!appState.files.find(x => x.name === f.name)) appState.files.push(f); } updateFileList(); }
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 function updateFileList() {
     const count = appState.files.length;
-    document.getElementById('fileBadge').style.visibility = count > 0 ? 'visible' : 'hidden';
-    document.getElementById('badgeCount').textContent = count;
-    document.getElementById('shareBtn').disabled = count === 0;
-    document.getElementById('filesContainer').innerHTML = appState.files.map((f, i) => `<div class="file-item"><span>${f.name}</span><button class="file-remove" onclick="window.removeFile(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+    const badge = document.getElementById('fileBadge');
+    const badgeCount = document.getElementById('badgeCount');
+    const badgeText = document.getElementById('fileBadgeText');
+    const container = document.getElementById('filesContainer');
+    const shareBtn = document.getElementById('shareBtn');
+
+    if (count === 0) {
+        if (badge) badge.style.visibility = 'hidden';
+        if (shareBtn) shareBtn.disabled = true;
+        ['passwordCheck', 'expirySelect'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = true;
+        });
+        return;
+    }
+
+    if (badge) badge.style.visibility = 'visible';
+    if (badgeCount) badgeCount.textContent = count;
+    if (badgeText) badgeText.textContent = `${count} file${count !== 1 ? 's' : ''} selected`;
+    if (shareBtn) shareBtn.disabled = false;
+    ['passwordCheck', 'expirySelect'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+    });
+
+    if (container) {
+        container.innerHTML = appState.files.map((f, i) => `
+            <div class="file-item">
+                <i class="fas fa-file"></i>
+                <span class="file-name">${f.name}</span>
+                <span class="file-size">${formatFileSize(f.size)}</span>
+                <button class="file-remove" onclick="window.removeFile(${i})"><i class="fas fa-times"></i></button>
+            </div>
+        `).join('');
+    }
 }
+
 window.removeFile = (i) => { appState.files.splice(i, 1); updateFileList(); };
+
+function showShareDialog(url) {
+    const dialog = document.createElement('div');
+    dialog.className = 'share-dialog';
+    dialog.innerHTML = `
+        <div class="dialog-content">
+            <div style="color: var(--accent-primary); font-size: 48px; margin-bottom: 16px;">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h3>Files Shared Successfully!</h3>
+            <p>Your shareable link is ready:</p>
+            <div class="url-box">
+                <input type="text" id="shareUrl" value="${url}" readonly>
+                <button class="btn btn-secondary" id="copyUrlBtn" style="padding: 0 15px; min-width: 80px;">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="location.reload()">
+                Done
+            </button>
+        </div>
+    `;
+    document.body.appendChild(dialog);
+
+    const copyBtn = document.getElementById('copyUrlBtn');
+    copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(url);
+        const originalHtml = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        setTimeout(() => copyBtn.innerHTML = originalHtml, 2000);
+    });
+}
+
 function setupFileDrawer() {
     const badge = document.getElementById('fileBadge');
     const drawer = document.getElementById('fileDrawer');
