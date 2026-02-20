@@ -28,6 +28,31 @@ ThereforeSharer is a lightweight desktop application that streamlines the proces
 - **Progress Tracking** - Real-time upload progress with cancellation support
 - **Native Integration** - Built as a native desktop application using Wails (macOS & Windows)
 
+## ThereforeSharer Web
+
+In addition to the desktop application, a web-based version is available in the `web/` directory. This version is designed for server-side deployment and team sharing.
+
+### Web Features
+
+- **Single Binary** - The Go backend embeds the entire frontend using `go:embed`, resulting in a single, portable executable.
+- **Server-Side Security** - Authentication tokens and configuration are stored securely on the server, never reaching the user's browser.
+- **Role-Based Access** - Two levels of access:
+  - **Admin**: Full access to configuration, Therefore credentials, and link management.
+  - **User**: Restricted access to sharing files and viewing history only.
+- **Docker Ready** - Includes a multi-stage Dockerfile and Docker Compose for easy deployment.
+- **Zero Local Dependencies** - The Docker build handles both Node.js (frontend) and Go (backend) compilation.
+
+### Running with Docker
+
+The easiest way to run the web version is using Docker Compose:
+
+```bash
+cd web/server
+docker compose up --build -d
+```
+
+Access the web portal at `http://localhost:8080`. On first run, you will be prompted to create an Admin Password.
+
 ## Requirements
 
 - macOS 10.13 (High Sierra) or later, or Windows 10+

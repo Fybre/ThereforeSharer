@@ -1,0 +1,22 @@
+/* Dark Theme */
+:root {
+  --bg-primary: #1a1d21;
+  --bg-secondary: #22262a;
+  --bg-tertiary: #2a2f35;
+  --bg-input: #1e2226;
+  --border-color: #3a3f46;
+  --border-focus: #4a9eff;
+  --text-primary: #e4e6e8;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --accent-primary: #22c55e;
+  --accent-primary-hover: #16a34a;
+  --accent-danger: #ef4444;
+  --accent-info: #3b82f6;
+  --accent-warning: #f59e0b;
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+* { box-sizing: border-box; }
+html { background: var(--bg-primary); color: var(--text-primary); font-size: 14px; overflow: hidden; height: 100%; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-primary); overflow: hidden; height: 100%; }
+#app { height: 100vh; background: var(--bg-primary); overflow: hidden; }

@@ -1,0 +1,11 @@
+services:
+  therefore-sharer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: therefore-sharer
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/root/
+    restart: always

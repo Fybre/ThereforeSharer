@@ -1,0 +1,12 @@
+{
+  "base_url": "https://craigdemo.thereforeonline.com",
+  "tenant_name": "craigdemo",
+  "category_no": 265,
+  "category_name": "Shared Files",
+  "auth_type": "bearer",
+  "auth_token": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2NyYWlnZGVtby50aGVyZWZvcmVvbmxpbmUuY29tLXNoYXJlIiwiYXVkIjoiWE40QlJSM09IRCIsIm5iZiI6MTc3MDY5NTg4MCwiZXhwIjoxODAyMjMxODgwLCJ1cm46b2F1dGg6c2NvcGUiOiJ0aGVyZWZvcmVfdXNlciIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvd2luZG93c2FjY291bnRuYW1lIjoiXFxjYW5vbnBzIn0.LdOCgo4rXucgP9klEjO-znsPoW2ffQ4S_sTXA5RcYz4",
+  "admin_password": "Taylor888",
+  "user_password": "Canon123",
+  "is_set_up": true,
+  "default_archive": "Archive"
+}
