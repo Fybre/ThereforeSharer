@@ -29,9 +29,16 @@ type Config struct {
 
 // GetConfigPath returns the full path to the config file
 func GetConfigPath() string {
+	cwd, _ := os.Getwd()
+	dataDir := filepath.Join(cwd, "data")
+	
 	// Ensure data directory exists
-	os.MkdirAll("data", 0755)
-	return filepath.Join("data", configFileName)
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		fmt.Printf("ERROR: Failed to create data directory at %s: %v\n", dataDir, err)
+	}
+	
+	path := filepath.Join(dataDir, configFileName)
+	return path
 }
 
 // LoadConfig loads the configuration from disk
@@ -43,7 +50,7 @@ func LoadConfig() (*Config, error) {
 		if os.IsNotExist(err) {
 			return &Config{}, nil
 		}
-		return nil, fmt.Errorf("failed to read config: %w", err)
+		return nil, fmt.Errorf("failed to read config at %s: %w", configPath, err)
 	}
 
 	var config Config
@@ -62,8 +69,10 @@ func (c *Config) SaveConfig() error {
 	}
 
 	configPath := GetConfigPath()
+	fmt.Printf("Saving config to: %s\n", configPath)
 	
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		fmt.Printf("ERROR: Failed to write config to %s: %v\n", configPath, err)
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 

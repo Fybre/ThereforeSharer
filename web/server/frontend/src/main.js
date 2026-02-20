@@ -81,22 +81,36 @@ const API = {
         }
         return await resp.json();
     },
-    async shareFiles(files, password, expiryDays, customExpiry) {
-        const formData = new FormData();
-        files.forEach(f => formData.append('files', f));
-        formData.append('password', password);
-        formData.append('expiryDays', expiryDays);
-        formData.append('customExpiry', customExpiry);
+    shareFiles(files, password, expiryDays, customExpiry, onProgress) {
+        return new Promise((resolve, reject) => {
+            const formData = new FormData();
+            files.forEach(f => formData.append('files', f));
+            formData.append('password', password);
+            formData.append('expiryDays', expiryDays);
+            formData.append('customExpiry', customExpiry);
 
-        const resp = await fetch(`${API_BASE}/share`, {
-            method: 'POST',
-            body: formData
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `${API_BASE}/share`, true);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    onProgress(percent, e.loaded, e.total);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(JSON.parse(xhr.responseText));
+                } else {
+                    const err = JSON.parse(xhr.responseText || '{"error": "Unknown error"}');
+                    reject(new Error(err.error || 'Upload failed'));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error('Network error during upload'));
+            xhr.send(formData);
         });
-        if (!resp.ok) {
-            const err = await resp.json();
-            throw new Error(err.error || 'Failed to share files');
-        }
-        return await resp.json();
     },
     async getShareHistory() {
         const resp = await fetch(`${API_BASE}/history`);
@@ -397,10 +411,18 @@ function setupEventListeners() {
         const expirySelect = document.getElementById('expirySelect');
         const expiryDays = expirySelect.value === 'custom' ? -1 : (expirySelect.value === 'never' ? 0 : parseInt(expirySelect.value));
         const customExpiry = expiryDays === -1 ? new Date(document.getElementById('customDate').value).toISOString() : '';
+        
+        const overlay = showUploadOverlay();
         try {
-            const resp = await API.shareFiles(appState.files, password, expiryDays, customExpiry);
+            const resp = await API.shareFiles(appState.files, password, expiryDays, customExpiry, (percent, loaded, total) => {
+                updateUploadOverlay(percent, loaded, total);
+            });
+            overlay.remove();
             showShareDialog(resp.url);
-        } catch (err) { alert(err.message); }
+        } catch (err) { 
+            overlay.remove();
+            alert(err.message); 
+        }
     });
 }
 
@@ -454,6 +476,34 @@ function updateFileList() {
 }
 
 window.removeFile = (i) => { appState.files.splice(i, 1); updateFileList(); };
+
+function showUploadOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'upload-overlay';
+    overlay.id = 'uploadOverlay';
+    overlay.innerHTML = `
+        <div class="upload-progress-card">
+            <h3 class="upload-progress-title">Uploading Files</h3>
+            <p class="upload-progress-subtitle">Transferring to Therefore™</p>
+            <div class="upload-progress-bar">
+                <div class="upload-progress-fill" id="uploadProgressFill" style="width: 0%;"></div>
+            </div>
+            <div class="upload-progress-text" id="uploadProgressText">0% • 0 B / 0 B</div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function updateUploadOverlay(percent, loaded, total) {
+    const fill = document.getElementById('uploadProgressFill');
+    const text = document.getElementById('uploadProgressText');
+    const subtitle = document.querySelector('.upload-progress-subtitle');
+    
+    if (fill) fill.style.width = `${percent}%`;
+    if (text) text.textContent = `${percent}% • ${formatFileSize(loaded)} / ${formatFileSize(total)}`;
+    if (subtitle && percent === 100) subtitle.textContent = 'Processing at Therefore™...';
+}
 
 function showShareDialog(url) {
     const dialog = document.createElement('div');
