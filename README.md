@@ -44,7 +44,29 @@ In addition to the desktop application, a web-based version is available in the 
 
 ### Running with Docker
 
-The easiest way to run the web version is using Docker Compose:
+#### Option 1: Pull from Docker Hub (Recommended)
+The easiest way to run ThereforeSharer Web is by using the pre-built multi-architecture image from Docker Hub:
+
+```yaml
+# Save this as docker-compose.yml
+services:
+  therefore-sharer:
+    image: fybre/thereforesharer:latest
+    container_name: therefore-sharer
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/root/
+    restart: always
+```
+
+Then run:
+```bash
+docker compose up -d
+```
+
+#### Option 2: Build from Source
+If you want to build the image yourself:
 
 ```bash
 cd web/server
