@@ -56,7 +56,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/root/
+      - ./data:/app/data/
     restart: always
 ```
 
