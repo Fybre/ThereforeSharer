@@ -297,6 +297,7 @@ Thanks to these wonderful contributors:
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Fybre"><img src="https://avatars.githubusercontent.com/u/48275667?v=4" width="100px;" alt="Fybre"/><br /><sub><b>Fybre</b></sub></a><br /><a href="https://github.com/Fybre/ThereforeSharer/commits?author=fybre" title="Code">💻</a> <a href="#ideas-fybre" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Fybre/ThereforeSharer/commits?author=fybre" title="Documentation">📖</a> <a href="#design-fybre" title="Design">🎨</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://claude.ai"><img src="https://www.anthropic.com/favicon.ico" width="100px;" alt="Claude"/><br /><sub><b>Claude</b></sub></a><br /><a href="https://github.com/Fybre/ThereforeSharer/commits" title="Code">💻</a> <a href="#ideas-claude" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Fybre/ThereforeSharer/commits" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://gemini.google.com"><img src="https://www.gstatic.com/lamda/images/favicon_v2_16x16.png" width="100px;" alt="Gemini CLI"/><br /><sub><b>Gemini CLI</b></sub></a><br /><a href="https://github.com/Fybre/ThereforeSharer/commits" title="Code">💻</a> <a href="#ideas-gemini" title="Ideas, Planning, & Feedback">🤔</a> <a href="#design-gemini" title="Design">🎨</a></td>
     </tr>
   </tbody>
 </table>
@@ -310,7 +311,7 @@ Thanks to these wonderful contributors:
 - Built with [Wails](https://wails.io/)
 - Icons from [Font Awesome](https://fontawesome.com/)
 - Integrates with Therefore™ document management system
-- Developed with assistance from Claude Code
+- Developed with assistance from Claude Code and **Gemini CLI** (Web version, Docker, and Multi-arch support)
 
 ---
 
