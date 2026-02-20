@@ -56,8 +56,11 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/app/data/
+      - therefore-data:/app/data/
     restart: always
+
+volumes:
+  therefore-data:
 ```
 
 Then run:
