@@ -185,8 +185,7 @@ ThereforeSharer/
 │   └── package.json
 ├── build/             # Build assets and outputs
 │   ├── darwin/        # macOS-specific files
-│   ├── appicon.png    # Application icon
-│   └── appicon.svg    # Icon source
+│   └── appicon.png    # Application icon
 ├── *.go               # Go backend files
 │   ├── main.go        # Application entry point
 │   ├── app.go         # Core application logic
