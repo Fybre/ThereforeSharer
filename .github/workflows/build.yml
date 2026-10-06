@@ -97,29 +97,9 @@ jobs:
         run: |
           IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
           echo "Signing with identity: $IDENTITY"
-          codesign --force --deep --options runtime \
+          codesign --force --deep --options runtime --timestamp \
             --sign "$IDENTITY" \
             "build/bin/${{ matrix.output }}.app"
-
-      - name: Notarize macOS App
-        if: matrix.platform == 'darwin'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          # Create a zip for notarization
-          ditto -c -k --keepParent "build/bin/${{ matrix.output }}.app" "$RUNNER_TEMP/notarize.zip"
-
-          # Submit for notarization
-          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-
-          # Staple the notarization ticket
-          xcrun stapler staple "build/bin/${{ matrix.output }}.app"
 
       - name: Create DMG (macOS)
         if: matrix.platform == 'darwin'
@@ -145,6 +125,26 @@ jobs:
             --hide-extension "${{ matrix.output }}.app" \
             "${{ matrix.asset }}" \
             "build/bin/${{ matrix.output }}.app"
+
+      # Notarizing the DMG also covers the app inside it
+      - name: Sign and Notarize DMG
+        if: matrix.platform == 'darwin'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          codesign --force --timestamp --sign "$IDENTITY" "${{ matrix.asset }}"
+
+          xcrun notarytool submit "${{ matrix.asset }}" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          # Staple the notarization ticket
+          xcrun stapler staple "${{ matrix.asset }}"
 
       # Windows packaging
       - name: Package Windows Build
