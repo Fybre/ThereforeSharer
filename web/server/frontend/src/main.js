@@ -84,7 +84,10 @@ const API = {
     shareFiles(files, password, expiryDays, customExpiry, onProgress) {
         return new Promise((resolve, reject) => {
             const formData = new FormData();
-            files.forEach(f => formData.append('files', f));
+            files.forEach(f => {
+                formData.append('files', f);
+                formData.append('paths', f.relPath || f.name);
+            });
             formData.append('password', password);
             formData.append('expiryDays', expiryDays);
             formData.append('customExpiry', customExpiry);
@@ -398,7 +401,20 @@ function setupEventListeners() {
     const dropZone = document.getElementById('dropZone');
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+    dropZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        // Entries must be collected synchronously, before the DataTransfer is cleared
+        const entries = [...e.dataTransfer.items]
+            .map(item => item.webkitGetAsEntry && item.webkitGetAsEntry())
+            .filter(Boolean);
+        if (entries.length === 0) { handleFiles(e.dataTransfer.files); return; }
+        try {
+            handleFiles(await collectEntryFiles(entries));
+        } catch (err) {
+            alert('Failed to read dropped items: ' + err.message);
+        }
+    });
 
     document.getElementById('passwordCheck').addEventListener('change', (e) => document.getElementById('passwordInput').disabled = !e.target.checked);
     document.getElementById('expirySelect').addEventListener('change', (e) => {
@@ -426,7 +442,36 @@ function setupEventListeners() {
     });
 }
 
-function handleFiles(list) { for (const f of list) { if (!appState.files.find(x => x.name === f.name)) appState.files.push(f); } updateFileList(); }
+function handleFiles(list) {
+    for (const f of list) {
+        if (!f.relPath) f.relPath = f.name;
+        if (!appState.files.find(x => x.relPath === f.relPath)) appState.files.push(f);
+    }
+    updateFileList();
+}
+
+// Recursively expands dropped files/folders into Files tagged with their
+// relative path (e.g. "Folder/sub/file.txt")
+async function collectEntryFiles(entries) {
+    const files = [];
+    const walk = async (entry, prefix) => {
+        if (entry.isFile) {
+            const file = await new Promise((resolve, reject) => entry.file(resolve, reject));
+            file.relPath = prefix + file.name;
+            files.push(file);
+        } else if (entry.isDirectory) {
+            const reader = entry.createReader();
+            // readEntries returns results in batches; call until it returns none
+            let batch;
+            do {
+                batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+                for (const child of batch) await walk(child, prefix + entry.name + '/');
+            } while (batch.length > 0);
+        }
+    };
+    for (const entry of entries) await walk(entry, '');
+    return files;
+}
 
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 B';
@@ -467,7 +512,7 @@ function updateFileList() {
         container.innerHTML = appState.files.map((f, i) => `
             <div class="file-item">
                 <i class="fas fa-file"></i>
-                <span class="file-name">${f.name}</span>
+                <span class="file-name">${f.relPath || f.name}</span>
                 <span class="file-size">${formatFileSize(f.size)}</span>
                 <button class="file-remove" onclick="window.removeFile(${i})"><i class="fas fa-times"></i></button>
             </div>

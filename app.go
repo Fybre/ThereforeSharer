@@ -333,16 +333,17 @@ type FileInfo struct {
 	Size int64  `json:"size"`
 }
 
-// GetFileInfo returns metadata about a file
+// GetFileInfo returns metadata about a file or directory. For a directory,
+// Size is the total size of the files it contains.
 func (a *App) GetFileInfo(path string) (*FileInfo, error) {
-	info, err := os.Stat(path)
+	size, err := PathSize(path)
 	if err != nil {
 		return nil, err
 	}
 	return &FileInfo{
 		Name: filepath.Base(path),
 		Path: path,
-		Size: info.Size(),
+		Size: size,
 	}, nil
 }
 

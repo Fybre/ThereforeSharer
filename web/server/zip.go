@@ -12,6 +12,8 @@ import (
 )
 
 // CreateZipArchive creates a ZIP archive containing the provided files
+// and directories. Directories are added recursively, keeping their
+// structure under the directory's own name.
 // Returns the bytes of the ZIP file
 func CreateZipArchive(filePaths []string) ([]byte, error) {
 	if len(filePaths) == 0 {
@@ -24,7 +26,7 @@ func CreateZipArchive(filePaths []string) ([]byte, error) {
 	zipWriter := zip.NewWriter(&buf)
 
 	for _, filePath := range filePaths {
-		if err := addFileToZip(zipWriter, filePath); err != nil {
+		if err := addPathToZip(zipWriter, filePath); err != nil {
 			zipWriter.Close()
 			return nil, fmt.Errorf("failed to add %s to zip: %w", filePath, err)
 		}
@@ -37,32 +39,53 @@ func CreateZipArchive(filePaths []string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// addFileToZip adds a single file to the ZIP archive
-func addFileToZip(zipWriter *zip.Writer, filePath string) error {
+// addPathToZip adds a file, or a directory and everything under it, to the
+// ZIP archive. Entry names are relative to the path's parent directory.
+func addPathToZip(zipWriter *zip.Writer, root string) error {
+	root = filepath.Clean(root)
+	parent := filepath.Dir(root)
+
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		rel, err := filepath.Rel(parent, path)
+		if err != nil {
+			return err
+		}
+		name := filepath.ToSlash(rel)
+
+		if info.IsDir() {
+			// Add an explicit entry so empty directories are preserved
+			_, err := zipWriter.Create(name + "/")
+			return err
+		}
+
+		// Skip symlinks, sockets, etc.
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		return addFileToZip(zipWriter, path, name, info)
+	})
+}
+
+// addFileToZip adds a single file to the ZIP archive under the given name
+func addFileToZip(zipWriter *zip.Writer, filePath, name string, info os.FileInfo) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	info, err := file.Stat()
-	if err != nil {
-		return err
-	}
-
-	// Skip directories
-	if info.IsDir() {
-		return nil
-	}
-
 	// Create zip header
 	header, err := zip.FileInfoHeader(info)
 	if err != nil {
 		return err
 	}
-	
-	// Use just the filename, not the full path
-	header.Name = filepath.Base(filePath)
+
+	header.Name = name
 	header.Method = zip.Deflate
 
 	writer, err := zipWriter.CreateHeader(header)
@@ -80,6 +103,10 @@ func addFileToZip(zipWriter *zip.Writer, filePath string) error {
 func GetFileNameForUpload(filePaths []string, defaultArchiveName string) string {
 	if len(filePaths) == 1 {
 		baseName := filepath.Base(filePaths[0])
+		// Folder names may contain dots, so don't treat them as extensions
+		if info, err := os.Stat(filePaths[0]); err == nil && info.IsDir() {
+			return baseName + ".zip"
+		}
 		ext := filepath.Ext(baseName)
 		// If already a .zip, keep the original filename
 		if strings.EqualFold(ext, ".zip") {
@@ -100,24 +127,34 @@ func GetFileNameForUpload(filePaths []string, defaultArchiveName string) string 
 	return fmt.Sprintf("%s-%s.zip", defaultArchiveName, timestamp)
 }
 
-// ValidateFiles checks if all provided file paths exist and are readable
+// ValidateFiles checks if all provided file and directory paths exist and are readable
 func ValidateFiles(filePaths []string) error {
-	var totalSize int64
 	for _, path := range filePaths {
-		info, err := os.Stat(path)
-		if err != nil {
+		if _, err := os.Stat(path); err != nil {
 			if os.IsNotExist(err) {
 				return fmt.Errorf("file does not exist: %s", path)
 			}
 			return fmt.Errorf("cannot access file %s: %w", path, err)
 		}
-		if info.IsDir() {
-			return fmt.Errorf("directories not supported: %s", path)
-		}
-		totalSize += info.Size()
 	}
 
 	// Note: Large files (over 100MB) may take a while to upload
 
 	return nil
+}
+
+// PathSize returns the size of a file, or the total size of all regular
+// files under a directory
+func PathSize(path string) (int64, error) {
+	var total int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.Mode().IsRegular() {
+			total += info.Size()
+		}
+		return nil
+	})
+	return total, err
 }

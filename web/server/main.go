@@ -279,15 +279,48 @@ func main() {
 		tempDir, _ := os.MkdirTemp("", "therefore-*")
 		defer os.RemoveAll(tempDir)
 
+		// Relative paths (e.g. "Folder/sub/file.txt") are sent separately,
+		// since multipart filenames are reduced to their base name
+		relPaths := form.Value["paths"]
+
+		// Recreate the dropped structure in tempDir and zip its top-level entries
 		var tempPaths []string
-		for _, f := range files {
-			p := filepath.Join(tempDir, f.Filename)
-			c.SaveUploadedFile(f, p)
-			tempPaths = append(tempPaths, p)
+		seen := map[string]bool{}
+		for i, f := range files {
+			rel := f.Filename
+			if i < len(relPaths) && relPaths[i] != "" {
+				rel = relPaths[i]
+			}
+			rel = filepath.Clean(filepath.FromSlash(rel))
+			if filepath.IsAbs(rel) || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file path: " + rel})
+				return
+			}
+
+			p := filepath.Join(tempDir, rel)
+			if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			if err := c.SaveUploadedFile(f, p); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			top := filepath.Join(tempDir, strings.SplitN(rel, string(filepath.Separator), 2)[0])
+			if !seen[top] {
+				seen[top] = true
+				tempPaths = append(tempPaths, top)
+			}
+		}
+
+		if len(tempPaths) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "no files provided"})
+			return
 		}
 
 		var fileData []byte
-		if len(tempPaths) == 1 && strings.EqualFold(filepath.Ext(tempPaths[0]), ".zip") {
+		if len(files) == 1 && len(tempPaths) == 1 && strings.EqualFold(filepath.Ext(tempPaths[0]), ".zip") {
 			fileData, _ = os.ReadFile(tempPaths[0])
 		} else {
 			fileData, _ = CreateZipArchive(tempPaths)
