@@ -24,7 +24,8 @@ ThereforeSharer is a lightweight desktop application that streamlines the proces
 - **Batch File Support** - Share multiple files at once (automatically zipped)
 - **Password Protection** - Optionally secure shared links with passwords
 - **Expiry Settings** - Set automatic link expiration (7, 30, 90 days, or custom date)
-- **Share History** - View, manage, and revoke previously shared links
+- **Document Descriptions** - Map an editable text field in your sharing category, then add an optional description when sharing
+- **Share History** - View descriptions and filenames, manage, and revoke previously shared links
 - **Progress Tracking** - Real-time upload progress with cancellation support
 - **Native Integration** - Built as a native desktop application using Wails (macOS & Windows)
 
@@ -318,3 +319,36 @@ Thanks to these wonderful contributors:
 ---
 
 **Note**: Therefore™ is a trademark of Therefore Corporation. This application is an independent tool and is not officially affiliated with or endorsed by Therefore Corporation.
+
+### Description / filename field
+
+In Settings, select the sharing category. If it contains editable text fields,
+enable **Use a text field for the description / filename**, choose the destination
+field, and save. Table columns, keyword/reference fields, and calculated fields
+are excluded from the list.
+
+The sharing screen then shows an optional **Description / filename** input above
+Password and Expiry. A blank value uses the uploaded ZIP filename. This sets the
+Therefore index field; it does not rename the ZIP or its contents. Values exceeding
+the field's length limit are rejected with a message rather than truncated.
+
+Share History shows the mapped description above the filename, falling back to the
+filename for older documents or when index data is unavailable. Category mappings
+are retained locally when switching categories or disabling the input, so existing
+descriptions remain visible. Changing the mapped field within the same category
+makes history display the newly selected field.
+
+### Large-file uploads
+
+Files are sent to Therefore through `UploadSessionStart` and
+`UploadSessionAppendChunkRaw` in 10 MiB binary chunks. `CreateDocument` then references
+the completed session using `FileUploadSessions`, together with the description/index
+data. No Base64 file content is included in the document-creation request.
+
+Existing ZIP files stream directly from disk. Other selections are zipped to a private
+temporary file that is removed after the attempt. Desktop progress advances after each
+chunk is acknowledged; 100% means the bytes are uploaded, while document creation and
+shared-link creation still need to finish. Cancellation stops further requests. Failed
+chunks and ambiguous document-creation requests are not automatically retried.
+
+Reference: [Therefore's recommended upload workflow](https://therefore.net/help/Online/en-us/AR/SDK/WebAPI/the_webapi_guide_archivefiles.html).

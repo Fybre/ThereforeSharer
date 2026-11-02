@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -98,18 +96,18 @@ func (a *App) GetCategories(req TestConnectionRequest) ([]CategoryInfo, error) {
 	}
 
 	client := NewThereforeAPIClient(req.BaseURL, req.TenantName, authToken)
-	
+
 	treeViews, err := client.GetCategoriesTree()
 	if err != nil {
 		return nil, fmt.Errorf("API error: %w", err)
 	}
-	
+
 	categories := FindCategoriesWithPath(treeViews, "")
-	
+
 	if len(categories) == 0 {
 		return []CategoryInfo{}, nil
 	}
-	
+
 	var result []CategoryInfo
 	for _, cat := range categories {
 		result = append(result, CategoryInfo{
@@ -117,7 +115,7 @@ func (a *App) GetCategories(req TestConnectionRequest) ([]CategoryInfo, error) {
 			Caption: cat.Path,
 		})
 	}
-	
+
 	return result, nil
 }
 
@@ -125,17 +123,18 @@ func (a *App) GetCategories(req TestConnectionRequest) ([]CategoryInfo, error) {
 
 // ShareRequest represents a request to share files
 type ShareRequest struct {
-	Files       []string `json:"files"`       // Full paths to files
-	Password    string   `json:"password"`    // Optional password
-	ExpiryDays  int      `json:"expiryDays"`  // 0 = never, 7, 30, 90, or -1 for custom
-	CustomExpiry string  `json:"customExpiry"` // ISO 8601 date if expiryDays = -1
+	Description  string   `json:"description"`
+	Files        []string `json:"files"`        // Full paths to files
+	Password     string   `json:"password"`     // Optional password
+	ExpiryDays   int      `json:"expiryDays"`   // 0 = never, 7, 30, 90, or -1 for custom
+	CustomExpiry string   `json:"customExpiry"` // ISO 8601 date if expiryDays = -1
 }
 
 // ShareResponse represents the result of a share operation
 type ShareResponse struct {
-	URL        string `json:"url"`
-	DocNo      int64  `json:"docNo"`
-	ExpiresAt  string `json:"expiresAt,omitempty"`
+	URL       string `json:"url"`
+	DocNo     int64  `json:"docNo"`
+	ExpiresAt string `json:"expiresAt,omitempty"`
 }
 
 // ShareFiles uploads files to Therefore and creates a shared link
@@ -144,6 +143,7 @@ func (a *App) ShareFiles(req ShareRequest) (*ShareResponse, error) {
 	uploadCtx, cancel := context.WithCancel(a.ctx)
 	a.cancelUpload = cancel
 	defer func() {
+		cancel()
 		a.cancelUpload = nil
 	}()
 
@@ -158,35 +158,36 @@ func (a *App) ShareFiles(req ShareRequest) (*ShareResponse, error) {
 		return nil, err
 	}
 
-	// Read or create ZIP archive
-	var fileData []byte
-	if len(req.Files) == 1 && strings.EqualFold(filepath.Ext(req.Files[0]), ".zip") {
-		// Single zip file - read it directly without re-zipping
-		fileData, err = os.ReadFile(req.Files[0])
-		if err != nil {
-			return nil, fmt.Errorf("failed to read file: %w", err)
-		}
-	} else {
-		fileData, err = CreateZipArchive(req.Files)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create archive: %w", err)
-		}
+	upload, cleanup, err := OpenUploadFile(uploadCtx, req.Files)
+	if err != nil {
+		return nil, err
 	}
-
-	// Check if cancelled
-	if uploadCtx.Err() != nil {
-		return nil, fmt.Errorf("upload cancelled")
+	defer cleanup()
+	info, err := upload.Stat()
+	if err != nil {
+		return nil, err
 	}
 
 	// Determine filename
 	fileName := GetFileNameForUpload(req.Files, config.DefaultArchive)
 
+	indexData, err := client.PrepareDescription(config.CategoryNo, config.DescriptionFieldNo, req.Description, fileName)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create document with progress tracking
-	docResp, err := client.CreateDocumentWithProgress(uploadCtx, config.CategoryNo, fileName, fileData, []IndexDataItem{})
+	docResp, err := client.CreateDocumentFromReader(uploadCtx, config.CategoryNo, fileName, upload, info.Size(), indexData, func(current, total int64) {
+		percent := 100
+		if total > 0 {
+			percent = int(current * 100 / total)
+		}
+		runtime.EventsEmit(a.ctx, "upload-progress", map[string]interface{}{"current": current, "total": total, "percent": percent})
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload document: %w", err)
 	}
-	
+
 	// Calculate expiry
 	var expiryTime *time.Time
 	if req.ExpiryDays > 0 {
@@ -198,22 +199,22 @@ func (a *App) ShareFiles(req ShareRequest) (*ShareResponse, error) {
 			expiryTime = &t
 		}
 	}
-	
+
 	// Create shared link
 	linkResp, err := client.CreateSharedLink(docResp.DocNo, req.Password, expiryTime, fileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create shared link: %w", err)
 	}
-	
+
 	resp := &ShareResponse{
 		URL:   linkResp.URL,
 		DocNo: docResp.DocNo,
 	}
-	
+
 	if expiryTime != nil {
 		resp.ExpiresAt = expiryTime.Format(time.RFC3339)
 	}
-	
+
 	return resp, nil
 }
 
@@ -245,6 +246,7 @@ func (a *App) getAuthenticatedClient() (*ThereforeAPIClient, *Config, error) {
 
 // ShareHistoryEntry represents a single share history entry
 type ShareHistoryEntry struct {
+	Description  string `json:"description"`
 	Filename     string `json:"filename"`
 	URL          string `json:"url"`
 	LinkID       string `json:"linkId"`
@@ -257,7 +259,7 @@ type ShareHistoryEntry struct {
 
 // GetShareHistory retrieves the share history for the current user
 func (a *App) GetShareHistory() ([]ShareHistoryEntry, error) {
-	client, _, err := a.getAuthenticatedClient()
+	client, config, err := a.getAuthenticatedClient()
 	if err != nil {
 		return nil, err
 	}
@@ -267,11 +269,14 @@ func (a *App) GetShareHistory() ([]ShareHistoryEntry, error) {
 		return nil, err
 	}
 
+	client.PopulateDescriptions(entries, config.DescriptionFields)
+
 	// Convert to our format - initialize with empty slice to ensure JSON returns [] not null
 	result := make([]ShareHistoryEntry, 0)
 	for _, entry := range entries {
 		result = append(result, ShareHistoryEntry{
 			Filename:     entry.SharedLink.Filename,
+			Description:  entry.Description,
 			URL:          entry.SharedLink.LinkURL,
 			LinkID:       entry.SharedLink.LinkID,
 			DocNo:        entry.SharedLink.DocNo,
@@ -352,4 +357,27 @@ func (a *App) CancelUpload() {
 	if a.cancelUpload != nil {
 		a.cancelUpload()
 	}
+}
+
+func (a *App) GetCategoryTextFields(req TestConnectionRequest, categoryNo int) ([]TextField, error) {
+	var authToken string
+	if req.AuthType == "basic" && req.Username != "" && req.Password != "" {
+		authToken = CreateBasicAuthToken(req.Username, req.Password)
+	} else if req.AuthType == "bearer" && req.Token != "" {
+		authToken = CreateBearerAuthToken(req.Token)
+	} else {
+		authToken = req.Token
+	}
+
+	// If no credentials in request, try stored credentials
+	if authToken == "" {
+		storedToken, err := GetAuthToken()
+		if err != nil || storedToken == "" {
+			return nil, fmt.Errorf("no authentication credentials provided")
+		}
+		authToken = storedToken
+	}
+
+	client := NewThereforeAPIClient(req.BaseURL, req.TenantName, authToken)
+	return client.GetCategoryTextFields(categoryNo)
 }

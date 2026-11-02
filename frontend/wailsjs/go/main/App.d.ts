@@ -10,6 +10,8 @@ export function DeleteDocument(arg1:number):Promise<void>;
 
 export function GetCategories(arg1:main.TestConnectionRequest):Promise<Array<main.CategoryInfo>>;
 
+export function GetCategoryTextFields(arg1:main.TestConnectionRequest,arg2:number):Promise<Array<main.TextField>>;
+
 export function GetConfig():Promise<main.Config>;
 
 export function GetFileInfo(arg1:string):Promise<main.FileInfo>;

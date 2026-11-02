@@ -484,7 +484,7 @@
   transition: opacity 0.2s ease;
 }
 
-.options-panel:has(input:disabled) {
+.options-panel:has(#passwordCheck:disabled) {
   opacity: 0.6;
 }
 
@@ -1476,3 +1476,18 @@ textarea.input {
     flex-direction: column;
   }
 }
+/* Optional document description */
+.description-settings { padding: 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; }
+.description-settings [hidden], .description-option[hidden] { display: none !important; }
+.description-settings input[type="checkbox"] { accent-color: var(--accent-primary); }
+#descriptionMapping { margin-top: 12px; }
+.description-hint { display: block; color: var(--text-secondary); font-size: 12px; margin-top: 6px; }
+.description-option { margin-bottom: 14px; }
+.description-option label { display: block; margin-bottom: 6px; }
+.description-option input { width: 100%; }
+.history-item-original { font-size: 12px; color: var(--text-secondary); margin: 4px 0; overflow-wrap: anywhere; }
+.history-item-info { min-width: 0; }
+.history-item-filename { overflow-wrap: anywhere; }
+/* Allow the extra option to fit in smaller windows. */
+.content-area { overflow-y: auto; }
+.options-panel, .share-btn { flex-shrink: 0; }

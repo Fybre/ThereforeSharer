@@ -1,3 +1,4 @@
+import { escapeHTML, descriptionSettingsMarkup, descriptionInputMarkup, showDescriptionInput, setupDescriptionSettings, connectionRequest } from './description';
 import './style.css';
 import './app.css';
 import appIconUrl from './appicon.png';
@@ -23,6 +24,20 @@ const appState = {
 
 // ==================== API Wrappers ====================
 const API = {
+    async getShareOptions() {
+        const resp = await fetch(`${API_BASE}/share-options`);
+        if (!resp.ok) throw new Error('Could not load sharing options');
+        return resp.json();
+    },
+    async getCategoryTextFields(req, categoryNo) {
+        const resp = await fetch(`${API_BASE}/category-text-fields`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({...req, categoryNo})
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Could not load text fields');
+        return data;
+    },
     async getStatus() {
         const resp = await fetch(`${API_BASE}/status`);
         return await resp.json();
@@ -54,7 +69,9 @@ const API = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        return await resp.json();
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || 'Could not save settings');
+        return result;
     },
     async setAuthCredentials(authType, username, password, token) {
         const resp = await fetch(`${API_BASE}/auth`, {
@@ -81,7 +98,7 @@ const API = {
         }
         return await resp.json();
     },
-    shareFiles(files, password, expiryDays, customExpiry, onProgress) {
+    shareFiles(files, password, expiryDays, customExpiry, description, onProgress) {
         return new Promise((resolve, reject) => {
             const formData = new FormData();
             files.forEach(f => {
@@ -89,6 +106,7 @@ const API = {
                 formData.append('paths', f.relPath || f.name);
             });
             formData.append('password', password);
+            formData.append('description', description);
             formData.append('expiryDays', expiryDays);
             formData.append('customExpiry', customExpiry);
 
@@ -189,7 +207,13 @@ function renderLogin(isFirstRun) {
 }
 
 // ==================== Main Screen ====================
-function renderMain() {
+async function renderMain() {
+    try {
+        const options = await API.getShareOptions();
+        appState.descriptionEnabled = options.descriptionEnabled;
+    } catch (err) {
+        appState.descriptionEnabled = false;
+    }
     const isAdmin = appState.role === 'admin';
     appElement.innerHTML = `
         <div class="main-container">
@@ -225,6 +249,7 @@ function renderMain() {
                 </div>
 
                 <div class="options-panel">
+ ${descriptionInputMarkup}
                     <div class="option-row">
                         <label><input type="checkbox" id="passwordCheck" disabled> Password:</label>
                         <input type="password" class="input" id="passwordInput" placeholder="Enter password" disabled style="flex: 1;">
@@ -257,6 +282,7 @@ function renderMain() {
 
     setupEventListeners();
     setupFileDrawer();
+    updateFileList();
 }
 
 // ==================== Settings Screen ====================
@@ -309,6 +335,7 @@ async function openSettings() {
                     </div>
                 </div>
 
+                ${descriptionSettingsMarkup}
                 <button class="btn btn-primary" id="saveSettingsBtn" style="width: 100%;">Save All Settings</button>
             </div>
         </div>
@@ -336,20 +363,27 @@ async function openSettings() {
         try {
             const categories = await API.getCategories(req);
             const select = document.getElementById('categorySelect');
-            select.innerHTML = categories.map(c => `<option value="${c.objNo}">${c.caption}</option>`).join('');
+            select.replaceChildren(...(categories || []).map(c => new Option(c.caption, c.objNo)));
+            select.dispatchEvent(new Event('change'));
         } catch (err) { alert(err.message); }
     });
+
+    const selectedDescriptionField = setupDescriptionSettings(config.description_field_no || 0,
+        categoryNo => API.getCategoryTextFields(connectionRequest(), categoryNo));
 
     document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
         const authType = document.querySelector('.auth-tab.active').dataset.type;
         const catSelect = document.getElementById('categorySelect');
         const newAdminPwd = document.getElementById('newAdminPassword').value;
+        let descriptionFieldNo;
+        try { descriptionFieldNo = selectedDescriptionField(); } catch (err) { alert(err.message); return; }
 
         const payload = {
             base_url: document.getElementById('baseURL').value,
             tenant_name: document.getElementById('tenantName').value,
             auth_type: authType,
             category_no: parseInt(catSelect.value) || 0,
+            description_field_no: descriptionFieldNo,
             category_name: catSelect.options[catSelect.selectedIndex]?.text || '',
             user_password: document.getElementById('userPassword').value,
             is_set_up: true,
@@ -383,7 +417,7 @@ async function renderHistory() {
         const entries = await API.getShareHistory();
         list.innerHTML = entries.map(e => {
             const link = e.SharedLink || e;
-            return `<div class="history-item"><div><strong>${link.Filename}</strong><br><small>${e.CategoryName || 'Doc #'+link.DocNo}</small></div><button class="btn btn-small" onclick="navigator.clipboard.writeText('${link.LinkUrl}'); alert('Copied!')"><i class="fas fa-copy"></i></button></div>`;
+            return `<div class="history-item"><div><strong>${escapeHTML(e.Description || link.Filename || 'Unnamed')}</strong>${e.Description && e.Description !== link.Filename ? `<div class="history-item-original">File: ${escapeHTML(link.Filename)}</div>` : '<br>'}<small>${escapeHTML(e.CategoryName || 'Doc #'+link.DocNo)}</small></div><button class="btn btn-small" onclick="navigator.clipboard.writeText('${link.LinkUrl}'); alert('Copied!')"><i class="fas fa-copy"></i></button></div>`;
         }).join('');
     } catch (err) { list.innerHTML = `<p>${err.message}</p>`; }
 }
@@ -430,7 +464,7 @@ function setupEventListeners() {
         
         const overlay = showUploadOverlay();
         try {
-            const resp = await API.shareFiles(appState.files, password, expiryDays, customExpiry, (percent, loaded, total) => {
+            const resp = await API.shareFiles(appState.files, password, expiryDays, customExpiry, document.getElementById('descriptionInput').value, (percent, loaded, total) => {
                 updateUploadOverlay(percent, loaded, total);
             });
             overlay.remove();
@@ -482,6 +516,7 @@ function formatFileSize(bytes) {
 }
 
 function updateFileList() {
+    showDescriptionInput(appState.descriptionEnabled, appState.files.length);
     const count = appState.files.length;
     const badge = document.getElementById('fileBadge');
     const badgeCount = document.getElementById('badgeCount');

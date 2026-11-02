@@ -38,7 +38,7 @@ func main() {
 	}))
 
 	// ==================== Auth Middlewares ====================
-	
+
 	// Middleware to check if ANY valid session exists
 	authRequired := func(c *gin.Context) {
 		config, _ := LoadConfig()
@@ -72,7 +72,7 @@ func main() {
 	r.GET("/api/status", func(c *gin.Context) {
 		config, _ := LoadConfig()
 		session, _ := c.Cookie(sessionCookieName)
-		
+
 		role := ""
 		if session == adminSessionVal {
 			role = "admin"
@@ -158,10 +158,10 @@ func main() {
 
 		existing, _ := LoadConfig()
 		newConfig := req.Config
-		
+
 		if existing != nil {
 			newConfig.AuthToken = existing.AuthToken
-			
+
 			// Update Admin Password if provided
 			if req.NewAdminPassword != "" {
 				newConfig.AdminPassword = req.NewAdminPassword
@@ -208,6 +208,16 @@ func main() {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	// Expose only the description toggle to share-only users.
+	api.GET("/share-options", func(c *gin.Context) {
+		config, err := LoadConfig()
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"descriptionEnabled": config.DescriptionFieldNo > 0})
 	})
 
 	// Shared Functionality (Users & Admins)
@@ -258,6 +268,45 @@ func main() {
 			result = append(result, gin.H{"objNo": cat.ItemNo, "caption": cat.Path})
 		}
 		c.JSON(http.StatusOK, result)
+	})
+
+	api.POST("/category-text-fields", adminOnly, func(c *gin.Context) {
+		// Category loading should still be restricted to admins or at least checked
+		var req struct {
+			CategoryNo int    `json:"categoryNo"`
+			BaseURL    string `json:"baseURL"`
+			TenantName string `json:"tenantName"`
+			AuthType   string `json:"authType"`
+			Username   string `json:"username"`
+			Password   string `json:"password"`
+			Token      string `json:"token"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		var authToken string
+		if req.AuthType == "basic" && req.Username != "" && req.Password != "" {
+			authToken = CreateBasicAuthToken(req.Username, req.Password)
+		} else if req.AuthType == "bearer" && req.Token != "" {
+			authToken = CreateBearerAuthToken(req.Token)
+		} else {
+			authToken = req.Token
+		}
+
+		if authToken == "" {
+			storedToken, _ := GetAuthToken()
+			authToken = storedToken
+		}
+
+		client := NewThereforeAPIClient(req.BaseURL, req.TenantName, authToken)
+		fields, err := client.GetCategoryTextFields(req.CategoryNo)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, fields)
 	})
 
 	api.POST("/share", func(c *gin.Context) {
@@ -319,15 +368,25 @@ func main() {
 			return
 		}
 
-		var fileData []byte
-		if len(files) == 1 && len(tempPaths) == 1 && strings.EqualFold(filepath.Ext(tempPaths[0]), ".zip") {
-			fileData, _ = os.ReadFile(tempPaths[0])
-		} else {
-			fileData, _ = CreateZipArchive(tempPaths)
+		upload, cleanup, err := OpenUploadFile(c.Request.Context(), tempPaths)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		defer cleanup()
+		info, err := upload.Stat()
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
 		}
 
 		fileName := GetFileNameForUpload(tempPaths, config.DefaultArchive)
-		docResp, err := client.CreateDocument(config.CategoryNo, fileName, fileData, []IndexDataItem{})
+		indexData, err := client.PrepareDescription(config.CategoryNo, config.DescriptionFieldNo, c.PostForm("description"), fileName)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		docResp, err := client.CreateDocumentFromReader(c.Request.Context(), config.CategoryNo, fileName, upload, info.Size(), indexData, nil)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -360,6 +419,7 @@ func main() {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		client.PopulateDescriptions(entries, config.DescriptionFields)
 		c.JSON(http.StatusOK, entries)
 	})
 

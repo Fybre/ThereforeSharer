@@ -15,28 +15,31 @@ const (
 
 // Config holds the application configuration
 type Config struct {
-	BaseURL         string `json:"base_url"`
-	TenantName      string `json:"tenant_name"`
-	CategoryNo      int    `json:"category_no"`
-	CategoryName    string `json:"category_name"`
-	AuthType        string `json:"auth_type"` // "basic" or "bearer"
-	AuthToken       string `json:"auth_token,omitempty"`
-	AdminPassword   string `json:"admin_password,omitempty"` // Full access
-	UserPassword    string `json:"user_password,omitempty"`  // Share only access
-	IsSetUp         bool   `json:"is_set_up"`
-	DefaultArchive  string `json:"default_archive"` // Default archive name for multiple files
+	DescriptionFieldNo int `json:"description_field_no"`
+	// Keep category mappings so history still works after switching categories.
+	DescriptionFields map[int]int `json:"description_fields,omitempty"`
+	BaseURL           string      `json:"base_url"`
+	TenantName        string      `json:"tenant_name"`
+	CategoryNo        int         `json:"category_no"`
+	CategoryName      string      `json:"category_name"`
+	AuthType          string      `json:"auth_type"` // "basic" or "bearer"
+	AuthToken         string      `json:"auth_token,omitempty"`
+	AdminPassword     string      `json:"admin_password,omitempty"` // Full access
+	UserPassword      string      `json:"user_password,omitempty"`  // Share only access
+	IsSetUp           bool        `json:"is_set_up"`
+	DefaultArchive    string      `json:"default_archive"` // Default archive name for multiple files
 }
 
 // GetConfigPath returns the full path to the config file
 func GetConfigPath() string {
 	cwd, _ := os.Getwd()
 	dataDir := filepath.Join(cwd, "data")
-	
+
 	// Ensure data directory exists
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		fmt.Printf("ERROR: Failed to create data directory at %s: %v\n", dataDir, err)
 	}
-	
+
 	path := filepath.Join(dataDir, configFileName)
 	return path
 }
@@ -44,7 +47,7 @@ func GetConfigPath() string {
 // LoadConfig loads the configuration from disk
 func LoadConfig() (*Config, error) {
 	configPath := GetConfigPath()
-	
+
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -63,6 +66,20 @@ func LoadConfig() (*Config, error) {
 
 // SaveConfig saves the configuration to disk
 func (c *Config) SaveConfig() error {
+	previous, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+	c.DescriptionFields = make(map[int]int)
+	if previous.BaseURL == c.BaseURL && previous.TenantName == c.TenantName {
+		for category, field := range previous.DescriptionFields {
+			c.DescriptionFields[category] = field
+		}
+	}
+	if c.DescriptionFieldNo > 0 {
+		c.DescriptionFields[c.CategoryNo] = c.DescriptionFieldNo
+	}
+
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
@@ -70,7 +87,7 @@ func (c *Config) SaveConfig() error {
 
 	configPath := GetConfigPath()
 	fmt.Printf("Saving config to: %s\n", configPath)
-	
+
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		fmt.Printf("ERROR: Failed to write config to %s: %v\n", configPath, err)
 		return fmt.Errorf("failed to write config: %w", err)

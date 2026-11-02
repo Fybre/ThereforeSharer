@@ -17,6 +17,8 @@ export namespace main {
 	    }
 	}
 	export class Config {
+	    description_field_no: number;
+	    description_fields?: Record<number, number>;
 	    base_url: string;
 	    tenant_name: string;
 	    category_no: number;
@@ -31,6 +33,8 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.description_field_no = source["description_field_no"];
+	        this.description_fields = source["description_fields"];
 	        this.base_url = source["base_url"];
 	        this.tenant_name = source["tenant_name"];
 	        this.category_no = source["category_no"];
@@ -57,6 +61,7 @@ export namespace main {
 	    }
 	}
 	export class ShareHistoryEntry {
+	    description: string;
 	    filename: string;
 	    url: string;
 	    linkId: string;
@@ -72,6 +77,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.description = source["description"];
 	        this.filename = source["filename"];
 	        this.url = source["url"];
 	        this.linkId = source["linkId"];
@@ -83,6 +89,7 @@ export namespace main {
 	    }
 	}
 	export class ShareRequest {
+	    description: string;
 	    files: string[];
 	    password: string;
 	    expiryDays: number;
@@ -94,6 +101,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.description = source["description"];
 	        this.files = source["files"];
 	        this.password = source["password"];
 	        this.expiryDays = source["expiryDays"];
@@ -136,6 +144,22 @@ export namespace main {
 	        this.username = source["username"];
 	        this.password = source["password"];
 	        this.token = source["token"];
+	    }
+	}
+	export class TextField {
+	    fieldNo: number;
+	    caption: string;
+	    maxLength: number;
+
+	    static createFrom(source: any = {}) {
+	        return new TextField(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.fieldNo = source["fieldNo"];
+	        this.caption = source["caption"];
+	        this.maxLength = source["maxLength"];
 	    }
 	}
 

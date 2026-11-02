@@ -3,146 +3,104 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 )
 
 // ThereforeAPIClient handles all API communication with
 type ThereforeAPIClient struct {
-	BaseURL    string
-	TenantName string
-	AuthToken  string
-	HTTPClient *http.Client
+	BaseURL       string
+	TenantName    string
+	AuthToken     string
+	HTTPClient    *http.Client
+	UploadTimeout time.Duration
 }
 
 // NewThereforeAPIClient creates a new API client
 func NewThereforeAPIClient(baseURL, tenantName, authToken string) *ThereforeAPIClient {
 	return &ThereforeAPIClient{
-		BaseURL:    baseURL,
-		TenantName: tenantName,
-		AuthToken:  authToken,
-		HTTPClient: &http.Client{Timeout: 5 * time.Minute}, // Increased for large file uploads
+		BaseURL:       baseURL,
+		TenantName:    tenantName,
+		AuthToken:     authToken,
+		HTTPClient:    &http.Client{Timeout: 5 * time.Minute},
+		UploadTimeout: 30 * time.Minute,
 	}
 }
 
-// makeRequest performs an HTTP request with authentication
+// Use a separate total budget for document creation without changing ordinary
+// API requests or mutating the shared client. The request context still cancels it.
+func (c *ThereforeAPIClient) clientForRequest(endpoint string) *http.Client {
+	if endpoint != "CreateDocument" || c.UploadTimeout <= 0 {
+		return c.HTTPClient
+	}
+	client := *c.HTTPClient
+	client.Timeout = c.UploadTimeout
+	return &client
+}
+
+type uncertainUploadError struct{ cause error }
+
+func (e *uncertainUploadError) Error() string {
+	return "The upload timed out before Therefore confirmed document creation. The document may already exist. Check the sharing category in Therefore before trying again to avoid creating a duplicate."
+}
+func (e *uncertainUploadError) Unwrap() error { return e.cause }
+
+func requestError(endpoint string, err error) error {
+	var netErr net.Error
+	if endpoint == "CreateDocument" && (errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout())) {
+		return &uncertainUploadError{cause: err}
+	}
+	return fmt.Errorf("request failed: %w", err)
+}
+
+// makeRequest sends an ordinary JSON request.
 func (c *ThereforeAPIClient) makeRequest(method, endpoint string, body []byte) ([]byte, error) {
-	url := c.BaseURL + "/theservice/v0001/restun/" + endpoint
-
-	var bodyReader io.Reader
-	if body != nil {
-		bodyReader = bytes.NewReader(body)
-	}
-
-	req, err := http.NewRequest(method, url, bodyReader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Set headers
-	req.Header.Set("Authorization", c.AuthToken)
-	req.Header.Set("TenantName", c.TenantName)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Parse common error scenarios to provide helpful messages
-		bodyStr := string(respBody)
-		switch resp.StatusCode {
-		case 401:
-			return nil, fmt.Errorf("authentication failed - please check your credentials in settings")
-		case 403:
-			return nil, fmt.Errorf("permission denied - you don't have rights to perform this action. Check your Therefore permissions for this category")
-		case 404:
-			return nil, fmt.Errorf("resource not found - the category or document may have been deleted")
-		case 500, 502, 503:
-			return nil, fmt.Errorf("Therefore server error - please try again later or contact your administrator")
-		default:
-			// For other errors, show the status code and response
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, bodyStr)
-		}
-	}
-
-	return respBody, nil
+	return c.makeRequestContext(context.Background(), method, endpoint, bytes.NewReader(body), "application/json; charset=utf-8", nil)
 }
 
-// makeRequestWithProgress performs an HTTP request with progress tracking
-func (c *ThereforeAPIClient) makeRequestWithProgress(ctx context.Context, method, endpoint string, body []byte) ([]byte, error) {
-	url := c.BaseURL + "/theservice/v0001/restun/" + endpoint
-
-	var bodyReader io.Reader
-	if body != nil {
-		// Wrap the body reader with progress tracking
-		progressReader := NewProgressReader(ctx, bytes.NewReader(body), int64(len(body)))
-		bodyReader = progressReader
-	}
-
-	req, err := http.NewRequest(method, url, bodyReader)
+// Every session, chunk and finalisation request shares the caller's cancellation.
+func (c *ThereforeAPIClient) makeRequestContext(ctx context.Context, method, endpoint string, body io.Reader, contentType string, headers map[string]string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+"/theservice/v0001/restun/"+endpoint, body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, err
 	}
-
-	// Add context to request for cancellation support
-	req = req.WithContext(ctx)
-
-	// Set headers
 	req.Header.Set("Authorization", c.AuthToken)
 	req.Header.Set("TenantName", c.TenantName)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Accept", "application/json")
-
-	// Important: Set Content-Length explicitly when using custom reader
-	req.ContentLength = int64(len(body))
-
-	resp, err := c.HTTPClient.Do(req)
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	resp, err := c.clientForRequest(endpoint).Do(req)
 	if err != nil {
-		// Check if error was due to context cancellation
-		if ctx.Err() == context.Canceled {
-			return nil, fmt.Errorf("upload cancelled")
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return nil, fmt.Errorf("upload cancelled: %w", ctx.Err())
 		}
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, requestError(endpoint, err)
 	}
 	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, requestError(endpoint, err)
 	}
-
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Parse common error scenarios to provide helpful messages
-		bodyStr := string(respBody)
 		switch resp.StatusCode {
 		case 401:
-			return nil, fmt.Errorf("authentication failed - please check your credentials in settings")
+			return nil, fmt.Errorf("authentication failed - check your credentials in Settings")
 		case 403:
-			return nil, fmt.Errorf("permission denied - you don't have rights to perform this action. Check your Therefore permissions for this category")
+			return nil, fmt.Errorf("permission denied - check your Therefore permissions for this category")
 		case 404:
-			return nil, fmt.Errorf("resource not found - the category or document may have been deleted")
-		case 500, 502, 503:
-			return nil, fmt.Errorf("Therefore server error - please try again later or contact your administrator")
+			return nil, fmt.Errorf("resource not found - the category, document or upload operation may be unavailable")
 		default:
-			// For other errors, show the status code and response
-			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, bodyStr)
+			return nil, fmt.Errorf("%s failed (HTTP %d)", endpoint, resp.StatusCode)
 		}
 	}
-
-	return respBody, nil
+	return data, nil
 }
 
 // TestConnection tests the connection by calling GetSystemCustomerId
@@ -153,10 +111,10 @@ func (c *ThereforeAPIClient) TestConnection() error {
 
 // TreeViewNode represents a node in the tree view
 type TreeViewNode struct {
-	ItemNo      int    `json:"ItemNo"`
-	ItemType    int    `json:"ItemType"` // 2 = Category
-	Name        string `json:"Name"`
-	ChildItems  []TreeViewNode `json:"ChildItems,omitempty"`
+	ItemNo     int            `json:"ItemNo"`
+	ItemType   int            `json:"ItemType"` // 2 = Category
+	Name       string         `json:"Name"`
+	ChildItems []TreeViewNode `json:"ChildItems,omitempty"`
 }
 
 // CategoryWithPath represents a category with its full path
@@ -193,7 +151,7 @@ func FindCategoriesWithPath(nodes []TreeViewNode, parentPath string) []CategoryW
 		if parentPath != "" {
 			currentPath = parentPath + " / " + node.Name
 		}
-		
+
 		if node.ItemType == 2 { // 2 = Category
 			categories = append(categories, CategoryWithPath{
 				ItemNo: node.ItemNo,
@@ -201,7 +159,7 @@ func FindCategoriesWithPath(nodes []TreeViewNode, parentPath string) []CategoryW
 				Path:   currentPath,
 			})
 		}
-		
+
 		if len(node.ChildItems) > 0 {
 			categories = append(categories, FindCategoriesWithPath(node.ChildItems, currentPath)...)
 		}
@@ -211,22 +169,22 @@ func FindCategoriesWithPath(nodes []TreeViewNode, parentPath string) []CategoryW
 
 // CreateDocumentRequest represents the request to create a document
 type CreateDocumentRequest struct {
-	CategoryNo int                 `json:"CategoryNo"`
-	Streams    []StreamInfo        `json:"Streams"`
-	IndexData  []IndexDataItem     `json:"IndexData"`
+	CategoryNo         int                 `json:"CategoryNo"`
+	FileUploadSessions []FileUploadSession `json:"FileUploadSessions"`
+	IndexData          []IndexDataItem     `json:"IndexDataItems"`
 }
 
-// StreamInfo represents a file stream
-type StreamInfo struct {
-	FileName           string `json:"FileName"`
-	FileDataBase64JSON string `json:"FileDataBase64JSON"`
+type FileUploadSession struct {
+	FileName        string `json:"FileName"`
+	UploadSessionID string `json:"UploadSessionId"`
 }
 
 // IndexDataItem represents an index data field
-type IndexDataItem struct {
+type IndexDataItem map[string]json.RawMessage
+
+type StringIndexData struct {
 	FieldNo   int    `json:"FieldNo"`
-	FieldName string `json:"FieldName,omitempty"`
-	Value     string `json:"Value"`
+	DataValue string `json:"DataValue"`
 }
 
 // CreateDocumentResponse represents the response from CreateDocument
@@ -237,55 +195,10 @@ type CreateDocumentResponse struct {
 	LastChangeTimeISO8601 string `json:"LastChangeTimeISO8601"`
 }
 
-// CreateDocument creates a new document in Therefore
+// CreateDocument is a convenience wrapper for callers with an in-memory file.
+// Desktop and web uploads use CreateDocumentFromReader to stream from disk.
 func (c *ThereforeAPIClient) CreateDocument(categoryNo int, fileName string, fileData []byte, indexData []IndexDataItem) (*CreateDocumentResponse, error) {
-	return c.CreateDocumentWithProgress(nil, categoryNo, fileName, fileData, indexData)
-}
-
-// CreateDocumentWithProgress creates a new document in Therefore with progress tracking
-func (c *ThereforeAPIClient) CreateDocumentWithProgress(ctx context.Context, categoryNo int, fileName string, fileData []byte, indexData []IndexDataItem) (*CreateDocumentResponse, error) {
-	req := CreateDocumentRequest{
-		CategoryNo: categoryNo,
-		Streams: []StreamInfo{
-			{
-				FileName:           fileName,
-				FileDataBase64JSON: base64.StdEncoding.EncodeToString(fileData),
-			},
-		},
-		IndexData: indexData,
-	}
-
-	reqBody, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Use progress-aware request if context provided
-	var data []byte
-	if ctx != nil {
-		data, err = c.makeRequestWithProgress(ctx, "POST", "CreateDocument", reqBody)
-	} else {
-		data, err = c.makeRequest("POST", "CreateDocument", reqBody)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// Try parsing as direct response (fields at root level)
-	var directResp CreateDocumentResponse
-	if err := json.Unmarshal(data, &directResp); err == nil && directResp.DocNo > 0 {
-		return &directResp, nil
-	}
-
-	// Try parsing with wrapper
-	var result struct {
-		CreateDocumentResult CreateDocumentResponse `json:"CreateDocumentResult"`
-	}
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse create document response: %w", err)
-	}
-
-	return &result.CreateDocumentResult, nil
+	return c.CreateDocumentFromReader(context.Background(), categoryNo, fileName, bytes.NewReader(fileData), int64(len(fileData)), indexData, nil)
 }
 
 // CreateSharedLinkRequest represents the request to create a shared link
@@ -293,10 +206,10 @@ type CreateSharedLinkRequest struct {
 	DocNo          int64  `json:"DocNo"`
 	Password       string `json:"Password,omitempty"`
 	Expire         string `json:"Expire,omitempty"` // ISO 8601 date or empty
-	PermissionType int    `json:"PermissionType"`  // Required: 1=ReadOnly, 2=Edit
-	ShareType      int    `json:"ShareType"`       // Required: 0=Organization, 1=SpecificPeople, 2=Public
-	FileFormat     int    `json:"FileFormat"`      // Optional: 0=PDF, 1=Original
-	Filename       string `json:"Filename"`        // Optional: filename for download
+	PermissionType int    `json:"PermissionType"`   // Required: 1=ReadOnly, 2=Edit
+	ShareType      int    `json:"ShareType"`        // Required: 0=Organization, 1=SpecificPeople, 2=Public
+	FileFormat     int    `json:"FileFormat"`       // Optional: 0=PDF, 1=Original
+	Filename       string `json:"Filename"`         // Optional: filename for download
 }
 
 // CreateSharedLinkResponse represents the response from CreateSharedLink
@@ -308,9 +221,10 @@ type CreateSharedLinkResponse struct {
 
 // SharedLinkViewEntry represents a shared link entry from the history
 type SharedLinkViewEntry struct {
-	CategoryName    string `json:"CategoryName"`
-	DocumentTitle   string `json:"DocumentTitle"`
-	SharedLink      SharedLinkInfo `json:"SharedLink"`
+	Description   string         `json:"Description"`
+	CategoryName  string         `json:"CategoryName"`
+	DocumentTitle string         `json:"DocumentTitle"`
+	SharedLink    SharedLinkInfo `json:"SharedLink"`
 }
 
 // SharedLinkInfo contains the shared link details
@@ -332,45 +246,45 @@ type SharedLinkInfo struct {
 // GetSharedLinksSharedByMe retrieves all shared links created by the current user
 func (c *ThereforeAPIClient) GetSharedLinksSharedByMe() ([]SharedLinkViewEntry, error) {
 	reqBody := `{"QueryId":0}`
-	
+
 	data, err := c.makeRequest("POST", "GetSharedLinksSharedByMe", []byte(reqBody))
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var result struct {
-		Finished             bool                  `json:"Finished"`
-		QueryID              int                   `json:"QueryId"`
+		Finished              bool                  `json:"Finished"`
+		QueryID               int                   `json:"QueryId"`
 		SharedLinkViewEntries []SharedLinkViewEntry `json:"SharedLinkViewEntries"`
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse shared links response: %w", err)
 	}
-	
+
 	return result.SharedLinkViewEntries, nil
 }
 
 // RevokeSharedLink revokes a shared link
 func (c *ThereforeAPIClient) RevokeSharedLink(linkID string) error {
 	reqBody := fmt.Sprintf(`{"LinkId":"%s"}`, linkID)
-	
+
 	_, err := c.makeRequest("POST", "RevokeSharedLink", []byte(reqBody))
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
 // DeleteDocument deletes a document from Therefore
 func (c *ThereforeAPIClient) DeleteDocument(docNo int64) error {
 	reqBody := fmt.Sprintf(`{"DocNo":%d}`, docNo)
-	
+
 	_, err := c.makeRequest("POST", "DeleteDocument", []byte(reqBody))
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -384,7 +298,7 @@ func (c *ThereforeAPIClient) CreateSharedLink(docNo int64, password string, expi
 		FileFormat:     1, // 1 = Original
 		Filename:       filename,
 	}
-	
+
 	if expireTime != nil {
 		req.Expire = expireTime.Format(time.RFC3339)
 	}

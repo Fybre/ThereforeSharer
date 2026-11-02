@@ -18,6 +18,10 @@ export function GetCategories(arg1) {
   return window['go']['main']['App']['GetCategories'](arg1);
 }
 
+export function GetCategoryTextFields(arg1, arg2) {
+  return window['go']['main']['App']['GetCategoryTextFields'](arg1, arg2);
+}
+
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }

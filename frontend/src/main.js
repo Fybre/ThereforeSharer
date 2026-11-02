@@ -1,3 +1,4 @@
+import { escapeHTML, descriptionSettingsMarkup, descriptionInputMarkup, showDescriptionInput, setupDescriptionSettings, connectionRequest } from './description';
 import './style.css';
 import './app.css';
 import * as App from '../wailsjs/go/main/App.js';
@@ -47,7 +48,13 @@ async function init() {
 }
 
 // ==================== Main Screen ====================
-function renderMain() {
+async function renderMain() {
+    try {
+        const options = await App.GetConfig();
+        appState.descriptionEnabled = options.description_field_no > 0;
+    } catch (err) {
+        appState.descriptionEnabled = false;
+    }
     appElement.innerHTML = `
         <div class="main-container">
             <header class="app-header">
@@ -83,6 +90,7 @@ function renderMain() {
                 </div>
 
                 <div class="options-panel" id="optionsPanel">
+ ${descriptionInputMarkup}
                     <div class="option-row">
                         <label style="min-width: 80px;">
                             <input type="checkbox" id="passwordCheck" disabled>
@@ -133,6 +141,7 @@ function renderMain() {
 
     setupEventListeners();
     setupFileDrawer();
+    updateFileList();
 }
 
 // ==================== Settings Screen ====================
@@ -140,6 +149,7 @@ async function openSettings() {
     // Load current settings
     let hasStoredAuth = false;
     let categoryName = '';
+    let descriptionFieldNo = 0;
     try {
         const config = await App.GetConfig();
         if (config) {
@@ -147,6 +157,7 @@ async function openSettings() {
             appState.settings.tenantName = config.tenant_name || '';
             appState.settings.authType = config.auth_type || 'basic';
             appState.settings.selectedCategory = config.category_no || null;
+            descriptionFieldNo = config.description_field_no || 0;
             categoryName = config.category_name || '';
             appState.settings.defaultArchive = config.default_archive || 'Archive';
 
@@ -259,6 +270,8 @@ async function openSettings() {
                     </div>
                 </div>
 
+                ${descriptionSettingsMarkup}
+
                 <div class="form-group">
                     <label>Default Archive Name</label>
                     <input type="text" class="input" id="defaultArchive" placeholder="Archive" value="${appState.settings.defaultArchive || 'Archive'}" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -295,6 +308,9 @@ async function openSettings() {
     document.getElementById('loadCategoriesBtn').addEventListener('click', async () => {
         await loadCategories();
     });
+
+    const selectedDescriptionField = setupDescriptionSettings(descriptionFieldNo,
+        categoryNo => App.GetCategoryTextFields(connectionRequest(), categoryNo));
 
     // Save settings button
     document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
@@ -334,6 +350,7 @@ async function openSettings() {
                 base_url: baseURL,
                 tenant_name: tenantName,
                 category_no: categoryNo,
+                description_field_no: selectedDescriptionField(),
                 category_name: categoryName,
                 auth_type: authType,
                 is_set_up: true,
@@ -384,7 +401,7 @@ function renderAbout() {
             <div class="about-content">
                 <div class="about-section">
                     <h3>ThereforeSharer</h3>
-                    <p class="about-version">Version 1.1.4</p>
+                    <p class="about-version">Version 1.2.0</p>
                     <p class="about-description">A native desktop application for quickly sharing files via Therefore™ document management system.</p>
                 </div>
 
@@ -475,6 +492,7 @@ async function loadCategories() {
             select.appendChild(option);
         });
 
+        select.dispatchEvent(new Event('change'));
         showToast('Categories loaded successfully!');
     } catch (err) {
         console.error('Failed to load categories:', err);
@@ -593,12 +611,13 @@ async function loadShareHistory() {
             const expiryText = hasExpiry ? `Expires: ${new Date(entry.expiresAt).toLocaleDateString()}` : 'No expiry';
             const passwordIcon = entry.hasPassword ? '<i class="fas fa-lock"></i> ' : '';
             const categoryName = entry.categoryName || '';
-            const categoryDisplay = categoryName ? `<i class="fas fa-folder"></i> ${categoryName} • ` : '';
+            const categoryDisplay = categoryName ? `<i class="fas fa-folder"></i> ${escapeHTML(categoryName)} • ` : '';
 
             return `
                 <div class="history-item" data-index="${index}">
                     <div class="history-item-info">
-                        <div class="history-item-filename">${passwordIcon}${entry.filename || 'Unnamed'}</div>
+                        <div class="history-item-filename">${passwordIcon}${escapeHTML(entry.description || entry.filename || 'Unnamed')}</div>
+                        ${entry.description && entry.description !== entry.filename ? `<div class="history-item-original">File: ${escapeHTML(entry.filename)}</div>` : ''}
                         <div class="history-item-meta">${categoryDisplay}${createdDate} • ${expiryText}</div>
                     </div>
                     <div class="history-item-actions">
@@ -881,6 +900,7 @@ function setupEventListeners() {
             const shareRequest = {
                 files: appState.files.map(f => f.path),
                 password: password,
+                description: document.getElementById('descriptionInput').value,
                 expiryDays: expiryDays,
                 customExpiry: customExpiry
             };
@@ -985,7 +1005,9 @@ function handleUploadProgress(data) {
     progressText.textContent = `${percent}% • ${current} / ${total}`;
 
     if (subtitle) {
-        subtitle.textContent = percent === 0 ? 'Preparing files' : 'Uploading to Therefore';
+        subtitle.textContent = percent >= 100
+            ? 'Waiting for Therefore to confirm the document'
+            : (percent === 0 ? 'Starting file upload' : 'Uploading file chunks to Therefore');
     }
 }
 
@@ -1017,6 +1039,7 @@ function setupFileDrawer() {
 }
 
 function updateFileList() {
+    showDescriptionInput(appState.descriptionEnabled, appState.files.length);
     const fileBadge = document.getElementById('fileBadge');
     const badgeCount = document.getElementById('badgeCount');
     const fileBadgeText = document.getElementById('fileBadgeText');
